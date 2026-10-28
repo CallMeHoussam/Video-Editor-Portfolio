@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1329"/>
+      <stop offset="50%" stop-color="#0E0B16"/>
+      <stop offset="100%" stop-color="#07050A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#8B5CF6" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#8B5CF6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="960" cy="540" r="600" fill="url(#glow)"/>
+
+  <!-- Viewfinder Grid & Crosshairs -->
+  <line x1="80" y1="80" x2="160" y2="80" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="80" y1="80" x2="80" y2="160" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="1840" y1="80" x2="1760" y2="80" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="1840" y1="80" x2="1840" y2="160" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="80" y1="1000" x2="160" y2="1000" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="80" y1="1000" x2="80" y2="920" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="1840" y1="1000" x2="1760" y2="1000" stroke="#8B5CF6" stroke-width="2.5"/>
+  <line x1="1840" y1="1000" x2="1840" y2="920" stroke="#8B5CF6" stroke-width="2.5"/>
+
+  <!-- Technical Readouts -->
+  <text x="120" y="140" fill="#EF4444" font-family="monospace" font-size="22" font-weight="bold" letter-spacing="4">● LIVE TIMELINE</text>
+  <text x="120" y="180" fill="#A7A1B3" font-family="monospace" font-size="16" letter-spacing="2">4K DCI // 24.00 FPS // TC: 00:01:24:18</text>
+  <text x="1800" y="140" fill="#C4B5FD" font-family="monospace" font-size="18" text-anchor="end" letter-spacing="2">EVOLESS MASTER REEL</text>
+  <text x="1800" y="180" fill="#A7A1B3" font-family="monospace" font-size="16" text-anchor="end">PRORES 422 HQ // REC.709</text>
+
+  <!-- Center Graphic -->
+  <circle cx="960" cy="540" r="110" fill="#8B5CF6" opacity="0.18" stroke="#8B5CF6" stroke-width="3"/>
+  <polygon points="945,490 1000,540 945,590" fill="#C4B5FD"/>
+
+  <text x="960" y="720" fill="#F5F3F8" font-family="sans-serif" font-size="38" font-weight="900" text-anchor="middle" letter-spacing="4">I TURN IDEAS INTO VISUAL EXPERIENCES.</text>
+  <text x="960" y="770" fill="#C4B5FD" font-family="sans-serif" font-size="20" font-weight="600" text-anchor="middle" letter-spacing="2">VIDEO EDITING · MOTION GRAPHICS · CREATIVE ADVERTISING</text>
+</svg>

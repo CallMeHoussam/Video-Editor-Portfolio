@@ -1,0 +1,88 @@
+import { ServiceItem } from '@/types';
+
+export const services: ServiceItem[] = [
+  {
+    id: 'commercials-ecommerce',
+    number: '01',
+    titleEn: 'Ads & Commercial Video Editing',
+    titleFr: 'Publicités & Montage E-Commerce',
+    summaryEn: 'Direct response video ads specifically structured to stop the scroll, sustain attention through the critical 3-second window, and drive measurable conversions.',
+    summaryFr: 'Vidéos publicitaires conçues pour stopper le scroll, capter l’attention dès les premières secondes et générer des conversions mesurables.',
+    deliverablesEn: [
+      'Multiple 3s Hook Iterations for A/B Testing',
+      'Dynamic Pacing & Sound-Driven Transitions',
+      'High-Impact On-Screen Typography & Call-To-Actions',
+      'Optimized 9:16 Vertical & 1:1 Social Formats',
+    ],
+    deliverablesFr: [
+      'Multiples déclinaisons de hooks pour A/B testing',
+      'Pacing rythmé et transitions calées au son',
+      'Titrages graphiques percutants et appels à l’action',
+      'Formats optimisés 9:16 et 1:1 pour les plateformes',
+    ],
+    tools: ['Premiere Pro', 'After Effects', 'CapCut'],
+  },
+  {
+    id: 'ugc-shortform',
+    number: '02',
+    titleEn: 'UGC & Short-Form Content Creation',
+    titleFr: 'Contenus UGC & Formats Courts (Reels, TikTok)',
+    summaryEn: 'Native-feeling UGC and influencer-style edits designed for TikTok, Instagram Reels, and YouTube Shorts that blend authentic storytelling with viral retention techniques.',
+    summaryFr: 'Montages UGC et formats créateurs natifs pour TikTok, Reels et Shorts alliant authenticité, rythme dynamique et forte rétention.',
+    deliverablesEn: [
+      'Micro-Pacing & Dead Air Elimination',
+      'Animated Subtitles with Emphasized Keywords',
+      'B-Roll Cutaways, Sound Effects & Memes (Where appropriate)',
+      'Thumbnail / Cover Frame Selection',
+    ],
+    deliverablesFr: [
+      'Rythme condensé sans temps morts',
+      'Sous-titres animés avec mots-clés mis en valeur',
+      'Intégration d’illustrations, sons et punchlines',
+      'Sélection de visuels de couverture optimisés',
+    ],
+    tools: ['CapCut', 'Premiere Pro', 'AI Tools'],
+  },
+  {
+    id: 'motion-graphics',
+    number: '03',
+    titleEn: 'Motion Graphics & Visual Enhancements',
+    titleFr: 'Motion Graphics & Animations Graphiques',
+    summaryEn: 'Sleek 2D animations, animated title cards, tracked screen replacements, and UI motion graphics that elevate overall production value into a broadcast-grade experience.',
+    summaryFr: 'Animations 2D soignées, titrages dynamiques, tracking vidéo et infographies animées qui rehaussent la qualité visuelle de chaque projet.',
+    deliverablesEn: [
+      'Custom Title Design & Lower Thirds',
+      'Camera Tracking & Element Compositing',
+      'Animated Infographics & Statistics Overlays',
+      'Logo Resolves & Transition Packages',
+    ],
+    deliverablesFr: [
+      'Titrages personnalisés et bandeaux animés',
+      'Tracking 2D/3D et incrustations visuelles',
+      'Infographies et visualisations de chiffres animées',
+      'Animations de logo et transitions de marque',
+    ],
+    tools: ['After Effects', 'Premiere Pro'],
+  },
+  {
+    id: 'brand-corporate',
+    number: '04',
+    titleEn: 'Brand Films & Corporate Storytelling',
+    titleFr: 'Films de Marque & Vidéos Institutionnelles',
+    summaryEn: 'Cinematic corporate documentaries, real estate walkthroughs, and leadership spotlight videos shaped by thoughtful interview cutting, rich sound design, and color grading.',
+    summaryFr: 'Vidéos d’entreprise haut de gamme, films immobiliers et prises de parole institutionnelles sublimées par un montage narratif et un étalonnage précis.',
+    deliverablesEn: [
+      'Editorial Story Crafting & Interview Weaving',
+      'Atmospheric Sound Design & Foley Mixing',
+      'Cinematic Color Correction & Look Development',
+      'Master Exports in 4K UHD & Multi-Platform Cuts',
+    ],
+    deliverablesFr: [
+      'Construction narrative et montage d’interviews',
+      'Mixage sonore d’ambiance et sound design soigné',
+      'Étalonnage colorimétrique cinématique',
+      'Exports masters en 4K UHD et déclinaisons réseaux',
+    ],
+    tools: ['Premiere Pro', 'After Effects', 'Camera Rig'],
+  },
+];

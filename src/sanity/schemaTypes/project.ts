@@ -1,0 +1,153 @@
+export const projectSchema = {
+  name: 'project',
+  title: 'Portfolio Project',
+  type: 'document',
+  fields: [
+    {
+      name: 'titleEn',
+      title: 'Title (English)',
+      type: 'string',
+      validation: (Rule: any) => Rule.required(),
+    },
+    {
+      name: 'titleFr',
+      title: 'Title (French)',
+      type: 'string',
+      validation: (Rule: any) => Rule.required(),
+    },
+    {
+      name: 'slug',
+      title: 'Slug',
+      type: 'slug',
+      options: { source: 'titleEn', maxLength: 96 },
+      validation: (Rule: any) => Rule.required(),
+    },
+    {
+      name: 'shortDescriptionEn',
+      title: 'Short Description (English)',
+      type: 'text',
+      rows: 2,
+    },
+    {
+      name: 'shortDescriptionFr',
+      title: 'Short Description (French)',
+      type: 'text',
+      rows: 2,
+    },
+    {
+      name: 'categories',
+      title: 'Categories',
+      type: 'array',
+      of: [{ type: 'reference', to: [{ type: 'category' }] }],
+    },
+    {
+      name: 'tags',
+      title: 'Tags',
+      type: 'array',
+      of: [{ type: 'string' }],
+      options: { layout: 'tags' },
+    },
+    {
+      name: 'year',
+      title: 'Year',
+      type: 'string',
+      initialValue: '2026',
+    },
+    {
+      name: 'client',
+      title: 'Client / Brand',
+      type: 'string',
+    },
+    {
+      name: 'roleEn',
+      title: 'Role (English)',
+      type: 'string',
+      initialValue: 'Video Editor & Motion Designer',
+    },
+    {
+      name: 'roleFr',
+      title: 'Role (French)',
+      type: 'string',
+      initialValue: 'Monteur Vidéo & Motion Designer',
+    },
+    {
+      name: 'aspectRatio',
+      title: 'Aspect Ratio',
+      type: 'string',
+      options: {
+        list: [
+          { title: '16:9 Horizontal', value: '16:9' },
+          { title: '9:16 Vertical Reel', value: '9:16' },
+          { title: '1:1 Square', value: '1:1' },
+          { title: '4:5 Social Portrait', value: '4:5' },
+        ],
+      },
+      initialValue: '16:9',
+    },
+    {
+      name: 'videoProvider',
+      title: 'Video Provider',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Bunny Stream', value: 'bunny' },
+          { title: 'Direct URL (MP4/WebM)', value: 'direct' },
+          { title: 'Vimeo', value: 'vimeo' },
+          { title: 'YouTube', value: 'youtube' },
+        ],
+      },
+      initialValue: 'direct',
+    },
+    {
+      name: 'videoUrl',
+      title: 'Video Reference URL / ID',
+      type: 'string',
+    },
+    {
+      name: 'bunnyLibraryId',
+      title: 'Bunny Stream Library ID',
+      type: 'string',
+    },
+    {
+      name: 'bunnyVideoId',
+      title: 'Bunny Stream Video ID',
+      type: 'string',
+    },
+    {
+      name: 'thumbnail',
+      title: 'Thumbnail Poster Image',
+      type: 'image',
+      options: { hotspot: true },
+    },
+    {
+      name: 'briefEn',
+      title: 'The Brief (English)',
+      type: 'text',
+      rows: 4,
+    },
+    {
+      name: 'briefFr',
+      title: 'The Brief (French)',
+      type: 'text',
+      rows: 4,
+    },
+    {
+      name: 'featured',
+      title: 'Featured on Homepage',
+      type: 'boolean',
+      initialValue: false,
+    },
+    {
+      name: 'published',
+      title: 'Published',
+      type: 'boolean',
+      initialValue: true,
+    },
+    {
+      name: 'order',
+      title: 'Display Order',
+      type: 'number',
+      initialValue: 1,
+    },
+  ],
+};

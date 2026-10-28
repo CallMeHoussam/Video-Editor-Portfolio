@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="100%" height="100%">
+  <rect width="1280" height="720" fill="#0A090E"/>
+  <circle cx="80" cy="80" r="8" fill="#EF4444"/>
+  <text x="100" y="86" fill="#EF4444" font-family="monospace" font-size="16" font-weight="bold">REC</text>
+  <text x="1200" y="86" fill="#C4B5FD" font-family="monospace" font-size="15" text-anchor="end">ISO 800 // F2.8 // 1/50</text>
+  <circle cx="640" cy="360" r="80" fill="#8B5CF6" opacity="0.15" stroke="#8B5CF6" stroke-width="2"/>
+  <polygon points="630,325 670,360 630,395" fill="#F5F3F8"/>
+  <text x="640" y="490" fill="#F5F3F8" font-family="sans-serif" font-size="26" font-weight="bold" text-anchor="middle" letter-spacing="2">TAGUI MEDIA FIELD PRODUCTION</text>
+  <text x="640" y="525" fill="#A7A1B3" font-family="sans-serif" font-size="16" text-anchor="middle">ON-SET CAMERA WORK &amp; CLIENT PROMOS</text>
+</svg>
