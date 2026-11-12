@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPortfolioData, savePortfolioData } from '@/lib/cms-store';
+import { getPortfolioDataAsync, savePortfolioDataAsync } from '@/lib/cms-store';
 import { Folder } from '@/types/portfolio';
 import { verifyAdminRequest } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 
 export async function GET() {
-  const data = getPortfolioData();
+  const data = await getPortfolioDataAsync();
   const folders = (data.folders || []).sort((a, b) => a.order - b.order);
   return NextResponse.json({ success: true, folders });
 }
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Folder name is required.' }, { status: 400 });
     }
 
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
     data.folders = data.folders || [];
 
     let slug = body.slug || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     };
 
     data.folders.push(newFolder);
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, folder: newFolder });
@@ -73,7 +73,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const body = await req.json();
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
     data.folders = data.folders || [];
 
     // Support batch reorder: { reorderIds: string[] }
@@ -84,7 +84,7 @@ export async function PUT(req: NextRequest) {
           folder.order = index + 1;
         }
       });
-      savePortfolioData(data);
+      await savePortfolioDataAsync(data);
       revalidatePath('/', 'layout');
       return NextResponse.json({ success: true, folders: data.folders });
     }
@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest) {
       order: typeof body.order === 'number' ? body.order : existing.order
     };
 
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, folder: data.folders[index] });
@@ -142,7 +142,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Folder ID is required.' }, { status: 400 });
     }
 
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
     data.folders = data.folders || [];
 
     const filtered = data.folders.filter(f => f.id !== id && f.slug !== id);
@@ -158,7 +158,7 @@ export async function DELETE(req: NextRequest) {
     });
 
     data.folders = filtered;
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, message: 'Folder deleted successfully.' });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
 
 type Theme = 'dark' | 'light';
 
@@ -15,6 +15,37 @@ const ThemeContext = createContext<ThemeContextType>({
   toggleTheme: () => {},
   setTheme: () => {},
 });
+
+const themeListeners = new Set<() => void>();
+
+function subscribeToTheme(listener: () => void) {
+  themeListeners.add(listener);
+  if (typeof window === 'undefined') {
+    return () => {
+      themeListeners.delete(listener);
+    };
+  }
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === 'evoless_theme') listener();
+  };
+  window.addEventListener('storage', handleStorage);
+  return () => {
+    themeListeners.delete(listener);
+    window.removeEventListener('storage', handleStorage);
+  };
+}
+
+function readStoredTheme(fallback: Theme): Theme {
+  try {
+    const saved = localStorage.getItem('evoless_theme');
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+  } catch {
+    // Fallback to defaultTheme
+  }
+  return fallback;
+}
 
 function applyThemeToDocument(targetTheme: Theme) {
   if (typeof document === 'undefined') return;
@@ -33,40 +64,35 @@ function applyThemeToDocument(targetTheme: Theme) {
   }
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
+export function ThemeProvider({
+  children,
+  defaultTheme = 'dark',
+}: {
+  children: React.ReactNode;
+  defaultTheme?: Theme;
+}) {
+  const theme = useSyncExternalStore<Theme>(
+    subscribeToTheme,
+    () => readStoredTheme(defaultTheme),
+    () => defaultTheme
+  );
 
   useEffect(() => {
-    // Check saved preference or default to dark
-    let initialTheme: Theme = 'dark';
-    try {
-      const saved = localStorage.getItem('evoless_theme') as Theme | null;
-      if (saved === 'light' || saved === 'dark') {
-        initialTheme = saved;
-      }
-    } catch {
-      // Fallback
-    }
-
-    setThemeState(initialTheme);
-    applyThemeToDocument(initialTheme);
-    setMounted(true);
-  }, []);
+    applyThemeToDocument(theme);
+  }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
     try {
       localStorage.setItem('evoless_theme', newTheme);
     } catch {
       // Ignore in private browsing
     }
     applyThemeToDocument(newTheme);
+    themeListeners.forEach((listener) => listener());
   };
 
   const toggleTheme = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   return (

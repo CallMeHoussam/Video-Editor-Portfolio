@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPortfolioData, savePortfolioData } from '@/lib/cms-store';
+import { getPortfolioDataAsync, savePortfolioDataAsync } from '@/lib/cms-store';
 import { Project } from '@/types/portfolio';
 import { verifyAdminRequest } from '@/lib/auth';
 import { parseVideoUrl, normalizeVideoProvider } from '@/lib/video-utils';
@@ -26,13 +26,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Video URL is required.' }, { status: 400 });
     }
 
-    // Validate video URL
-    const parsed = parseVideoUrl(videoUrl);
+    // Validate video URL (with server Bunny library ID fallback)
+    const envLibraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || undefined;
+    const parsed = parseVideoUrl(videoUrl, payload.bunnyLibraryId || envLibraryId);
     if (!parsed.valid) {
       return NextResponse.json({ success: false, message: parsed.error || 'Invalid video URL.' }, { status: 400 });
     }
 
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
 
     // Auto-generate slug if not provided
     let slug = payload.slug || titleEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -90,6 +91,10 @@ export async function POST(req: NextRequest) {
       previewVideo: payload.previewVideo || '',
       videoProvider: normalizeVideoProvider(parsed.provider),
       videoUrl: parsed.directUrl || parsed.embedUrl || videoUrl,
+      r2Key: parsed.provider === 'r2' ? (parsed.r2Key || payload.r2Key) : payload.r2Key,
+      r2ThumbnailKey: payload.r2ThumbnailKey,
+      bunnyLibraryId: parsed.provider === 'bunny' ? (parsed.libraryId || payload.bunnyLibraryId || envLibraryId) : undefined,
+      bunnyVideoId: parsed.provider === 'bunny' ? (parsed.bunnyVideoId || payload.bunnyVideoId) : undefined,
       brief: {
         en: payload.brief?.en || '',
         fr: payload.brief?.fr || ''
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
     };
 
     data.projects.push(projectToSave);
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, project: projectToSave });

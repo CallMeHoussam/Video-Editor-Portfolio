@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 1280" width="100%" height="100%">
+  <rect width="720" height="1280" fill="#0D0D11"/>
+  <rect x="36" y="36" width="648" height="1208" fill="#121218" stroke="#25252E" stroke-width="1.5"/>
+  <line x1="36" y1="124" x2="684" y2="124" stroke="#1E1E26" stroke-width="1"/>
+  <rect x="72" y="76" width="22" height="2" fill="#8B74FF"/>
+  <text x="108" y="82" fill="#9E9CA6" font-family="system-ui, -apple-system, sans-serif" font-size="13" letter-spacing="3" font-weight="500">TUCOSO &amp; NAZA</text>
+  <text x="648" y="82" fill="#6E6D76" font-family="monospace" font-size="13" text-anchor="end">9:16</text>
+  <rect x="140" y="360" width="440" height="520" fill="#0B0B0F" stroke="#25252E" stroke-width="1"/>
+  <circle cx="360" cy="620" r="34" fill="#17171E" stroke="#353542" stroke-width="1.5"/>
+  <polygon points="353,607 374,620 353,633" fill="#F4F3F0"/>
+  <text x="360" y="960" fill="#F4F3F0" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="1.5">PERFORMANCE REEL</text>
+  <text x="360" y="996" fill="#7D7B87" font-family="system-ui, -apple-system, sans-serif" font-size="13" text-anchor="middle" letter-spacing="2">STAY IN MEDIA</text>
+</svg>
+

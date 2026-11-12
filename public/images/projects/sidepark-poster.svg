@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="100%" height="100%">
+  <rect width="1280" height="720" fill="#0B0B0F"/>
+  <rect x="44" y="44" width="1192" height="632" fill="#111116" stroke="#24242D" stroke-width="1.5"/>
+  <line x1="44" y1="120" x2="1236" y2="120" stroke="#1C1C23" stroke-width="1"/>
+  <rect x="80" y="80" width="22" height="2" fill="#8B74FF"/>
+  <text x="116" y="86" fill="#9E9CA6" font-family="system-ui, -apple-system, sans-serif" font-size="13" letter-spacing="3" font-weight="500">SIDEPARK &amp; AJIAL</text>
+  <text x="1200" y="86" fill="#6E6D76" font-family="monospace" font-size="13" text-anchor="end">16:9</text>
+  <rect x="240" y="210" width="800" height="310" fill="none" stroke="#24242E" stroke-width="1"/>
+  <line x1="640" y1="210" x2="640" y2="520" stroke="#1B1B22" stroke-width="1"/>
+  <circle cx="640" cy="365" r="34" fill="#16161D" stroke="#353542" stroke-width="1.5"/>
+  <polygon points="633,352 654,365 633,378" fill="#F4F3F0"/>
+  <text x="640" y="592" fill="#F4F3F0" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="2">ARCHITECTURAL FILM</text>
+  <text x="640" y="624" fill="#7D7B87" font-family="system-ui, -apple-system, sans-serif" font-size="13" text-anchor="middle" letter-spacing="2">SENSEIPROD</text>
+</svg>
+

@@ -2,7 +2,7 @@ import React from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Locale } from '@/types/portfolio';
-import { getPortfolioData, getPublishedProjects, getFolders, getCategories, getSiteSettings } from '@/lib/cms-store';
+import { getPublishedProjects, getFolders, getCategories, getSiteSettings } from '@/lib/cms-store';
 import { Navbar } from '@/components/Navbar';
 import { PortfolioSection } from '@/components/PortfolioSection';
 import { FloatingWhatsApp } from '@/components/FloatingWhatsApp';

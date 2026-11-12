@@ -42,3 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local video files & dev uploads (never commit large video binaries)
+/public/videos/*
+!/public/videos/.gitkeep
+/public/uploads/videos/*
+!/public/uploads/videos/.gitkeep
+

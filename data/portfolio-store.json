@@ -29,11 +29,22 @@
       "title": {
         "en": "Evoless 2026/2027 Showreel — Visual Rhythm & Motion",
         "fr": "Bande Démo Evoless 2026/2027 — Rythme Visuel & Motion"
-      }
+      },
+      "enabled": true
     },
     "cvFiles": {
       "en": "/files/cv/Houssam_CV_ENG.pdf",
       "fr": "/files/cv/Houssam_CV_FRA.pdf"
+    },
+    "defaultTheme": "dark",
+    "sectionsVisibility": {
+      "hero": true,
+      "showreel": true,
+      "portfolio": true,
+      "services": true,
+      "about": true,
+      "experience": true,
+      "contact": true
     }
   },
   "categories": [
@@ -330,7 +341,7 @@
         "Adobe After Effects",
         "CapCut"
       ],
-      "thumbnail": "",
+      "thumbnail": "/images/projects/mama-rahik-poster.svg",
       "previewVideo": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
       "videoProvider": "googledrive",
       "videoUrl": "https://drive.google.com/file/d/1V1lwUS2SwUfSl_o9buqnsVHLwR7vYA4_/preview",
@@ -430,7 +441,7 @@
         }
       },
       "featured": true,
-      "published": true,
+      "published": false,
       "order": 1,
       "folderId": "mama-rahik"
     },
@@ -468,7 +479,7 @@
         "Adobe Premiere Pro",
         "Adobe After Effects"
       ],
-      "thumbnail": "/images/projects/sidepark-thumb.jpg",
+      "thumbnail": "/images/projects/sidepark-poster.svg",
       "previewVideo": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
       "videoProvider": "direct",
       "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
@@ -577,7 +588,7 @@
         "Adobe Premiere Pro",
         "Adobe After Effects"
       ],
-      "thumbnail": "/images/projects/attijariwafa-thumb.jpg",
+      "thumbnail": "/images/projects/attijariwafa-poster.svg",
       "previewVideo": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       "videoProvider": "direct",
       "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
@@ -645,9 +656,9 @@
         "CapCut",
         "Adobe After Effects"
       ],
-      "thumbnail": "/images/projects/sawtia-thumb.jpg",
+      "thumbnail": "/images/projects/sawtia-poster.svg",
       "previewVideo": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-      "videoProvider": "direct",
+      "videoProvider": "googledrive",
       "videoUrl": "https://drive.google.com/file/d/1ko_T2S4WkLI7a_OgT8eYMnF5Hf6sId7v/view?usp=drive_link",
       "brief": {
         "en": "Highlight the quality, versatility, and studio environment of Moroccan voice talents on media platforms CastingVoixOFF and Sawtia for casting directors and agencies.",
@@ -676,7 +687,7 @@
       "featured": true,
       "published": false,
       "order": 4,
-      "folderId": "ugc-performance"
+      "folderId": "general"
     },
     {
       "id": "project-5",
@@ -690,8 +701,7 @@
         "fr": "Publicités d'acquisition directe multi-angles pour boutiques e-commerce avec tests d'accroches et démonstration rapide des bénéfices."
       },
       "categories": [
-        "ads-commercials",
-        "ugc-performance"
+        "tucoso"
       ],
       "tags": [
         "Direct Response",
@@ -714,7 +724,7 @@
         "CapCut",
         "After Effects"
       ],
-      "thumbnail": "/images/projects/tucoso-thumb.jpg",
+      "thumbnail": "/images/projects/tucoso-poster.svg",
       "previewVideo": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
       "videoProvider": "direct",
       "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
@@ -739,9 +749,9 @@
         }
       },
       "featured": false,
-      "published": true,
+      "published": false,
       "order": 5,
-      "folderId": "ads-commercials"
+      "folderId": "tucoso"
     }
   ],
   "experiences": [

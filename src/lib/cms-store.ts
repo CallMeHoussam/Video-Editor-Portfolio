@@ -12,6 +12,7 @@ import {
   SkillGroup
 } from '@/types/portfolio';
 import { initialPortfolioData } from '@/data/initial-data';
+import { loadPortfolioDataFromDb, savePortfolioDataToDb, getDbConfigStatus } from './persistent-db';
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'portfolio-store.json');
 
@@ -90,19 +91,20 @@ function ensureFoldersAndMigration(data: PortfolioData): PortfolioData {
     needsSave = true;
   }
 
-  // Ensure every project has a valid folderId
+  // Ensure every project has a valid folderId pointing to an actual folder or 'general'
+  const validFolderIds = new Set((data.folders || []).map((f) => f.id));
   data.projects.forEach(project => {
-    if (!project.folderId) {
-      if (project.slug === 'mama-rahik-product-launch') {
+    const hasValidFolder = project.folderId === 'general' || (project.folderId && validFolderIds.has(project.folderId));
+    if (!hasValidFolder) {
+      if (project.slug.includes('mama-rahik') && validFolderIds.has('mama-rahik')) {
         project.folderId = 'mama-rahik';
-      } else if (project.slug === 'tucoso-naza-ecommerce-ads') {
+      } else if (project.slug.includes('tucoso') && validFolderIds.has('tucoso')) {
         project.folderId = 'tucoso';
-      } else if (project.slug === 'sidepark-architectural-film' || project.slug === 'attijariwafa-bank-commercial') {
+      } else if ((project.slug.includes('sidepark') || project.slug.includes('attijariwafa')) && validFolderIds.has('brand-films')) {
         project.folderId = 'brand-films';
-      } else if (project.slug === 'castingvoixoff-talent-series') {
-        project.folderId = 'personal-projects';
       } else {
-        project.folderId = project.categories?.[0] || 'general';
+        const categoryAsFolder = project.categories?.find((c) => validFolderIds.has(c));
+        project.folderId = categoryAsFolder || 'general';
       }
       needsSave = true;
     }
@@ -152,8 +154,55 @@ export function getPortfolioData(): PortfolioData {
   return memoryStore;
 }
 
+export async function getPortfolioDataAsync(): Promise<PortfolioData> {
+  const dbStatus = getDbConfigStatus();
+  if (dbStatus.isConfigured) {
+    try {
+      const dbData = await loadPortfolioDataFromDb();
+      if (dbData) {
+        const migrated = ensureFoldersAndMigration(dbData);
+        memoryStore = migrated;
+        return migrated;
+      } else {
+        // First run with persistent DB configured: seed it from existing local JSON store or initial data
+        const localData = getPortfolioData();
+        await savePortfolioDataToDb(localData);
+        memoryStore = localData;
+        return localData;
+      }
+    } catch (err) {
+      console.warn('[CMS Store] Failed to load from persistent database, falling back to local store:', err);
+    }
+  }
+
+  return getPortfolioData();
+}
+
+export async function savePortfolioDataAsync(data: PortfolioData): Promise<boolean> {
+  memoryStore = data;
+
+  const dbStatus = getDbConfigStatus();
+  if (dbStatus.isConfigured) {
+    try {
+      await savePortfolioDataToDb(data);
+    } catch (err) {
+      console.error('[CMS Store] Failed to persist data to database:', err);
+    }
+  }
+
+  return savePortfolioData(data);
+}
+
 export function savePortfolioData(data: PortfolioData): boolean {
   memoryStore = data;
+
+  // Background sync to database if configured
+  const dbStatus = getDbConfigStatus();
+  if (dbStatus.isConfigured) {
+    savePortfolioDataToDb(data).catch((err) => {
+      console.error('[CMS Store Background Sync Error]:', err);
+    });
+  }
 
   try {
     const dir = path.dirname(DATA_FILE_PATH);

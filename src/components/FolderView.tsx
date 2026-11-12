@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Locale, Folder, Project } from '@/types/portfolio';
 import { VideoPlayer } from './VideoPlayer';
-import { VideoThumbnail } from './VideoThumbnail';
-import { ArrowLeft, Star, Film, Play, Sparkles } from 'lucide-react';
+import { ProjectCard } from './ProjectCard';
+import { ArrowLeft, ArrowUpRight, Play } from 'lucide-react';
 
 interface FolderViewProps {
   locale: Locale;
@@ -14,183 +14,193 @@ interface FolderViewProps {
   bestOne: Project;
 }
 
-export function FolderView({ locale, folder, projects, bestOne }: FolderViewProps) {
-  // Allow user to switch the active video playing in the main theater view
+export function FolderView({
+  locale,
+  folder,
+  projects,
+  bestOne,
+}: FolderViewProps) {
   const [activeVideo, setActiveVideo] = useState<Project>(bestOne);
 
-  const folderName = folder.name[locale] || folder.name.en || folder.id;
-  const folderDesc = folder.description?.[locale] || folder.description?.en || '';
-
-  const isCurrentActiveBestOne = activeVideo.id === bestOne.id;
-  const otherVideos = projects.filter(p => p.id !== activeVideo.id);
+  const folderName = folder.name[locale] || folder.name.en;
+  const folderDesc = folder.description?.[locale] || folder.description?.en;
+  const remainingVideos = projects.filter((p) => p.id !== bestOne.id);
+  const activeTitle = activeVideo.title[locale] || activeVideo.title.en;
+  const activeDesc = activeVideo.shortDescription?.[locale] || activeVideo.shortDescription?.en;
 
   return (
-    <div className="pt-28 pb-24 md:pt-36 md:pb-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation & Breadcrumb */}
-        <div className="mb-8 flex items-center justify-between">
+    <div className="pt-28 pb-20 sm:pt-36 sm:pb-28">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8">
+        {/* Top Back Navigation */}
+        <div className="mb-8">
           <Link
             href={`/${locale}#work`}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)] hover:text-purple-400 transition-colors"
+            className="inline-flex items-center gap-2 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>{locale === 'en' ? 'Back to Portfolio' : 'Retour au Portfolio'}</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>{locale === 'fr' ? 'Retour aux projets' : 'Back to Selected Work'}</span>
           </Link>
-
-          <span className="text-xs font-mono px-3 py-1 rounded-full bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-muted)]">
-            {projects.length} {projects.length === 1 ? (locale === 'en' ? 'Video' : 'Vidéo') : (locale === 'en' ? 'Videos' : 'Vidéos')}
-          </span>
         </div>
 
-        {/* Folder Header */}
-        <div className="max-w-4xl mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold uppercase tracking-wider mb-3">
-            <Film className="w-3.5 h-3.5" />
-            <span>{locale === 'en' ? 'Project Collection' : 'Dossier Projet'}</span>
+        {/* Folder Editorial Header */}
+        <header className="pb-10 border-b border-[var(--border-subtle)] mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-2">
+              {locale === 'fr' ? 'Dossier Client' : 'Client Folder'}
+            </p>
+            <h1 className="font-display text-3xl sm:text-5xl font-semibold tracking-[-0.025em] text-[var(--text-primary)]">
+              {folderName}
+            </h1>
+            {folderDesc && (
+              <p className="text-sm sm:text-base text-[var(--text-secondary)] mt-3 max-w-2xl">
+                {folderDesc}
+              </p>
+            )}
           </div>
 
-          <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-black text-[var(--text-primary)] tracking-tight uppercase">
-            {folderName}
-          </h1>
+          <div className="text-xs text-[var(--text-muted)] tabular-nums shrink-0">
+            {projects.length}{' '}
+            {locale === 'fr'
+              ? projects.length > 1
+                ? 'vidéos publiées'
+                : 'vidéo publiée'
+              : projects.length > 1
+                ? 'published films'
+                : 'published film'}
+          </div>
+        </header>
 
-          {folderDesc && (
-            <p className="text-base sm:text-lg text-[var(--text-secondary)] mt-3 max-w-2xl leading-relaxed">
-              {folderDesc}
-            </p>
-          )}
-        </div>
+        {/* Active Theater / Best One Stage */}
+        <section className="mb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg p-5 sm:p-8">
+            <div className="lg:col-span-7 flex justify-center bg-[#09090B] rounded-md p-3 sm:p-5 border border-[var(--border-subtle)]">
+              <VideoPlayer
+                key={activeVideo.id}
+                provider={activeVideo.videoProvider}
+                url={activeVideo.videoUrl}
+                poster={activeVideo.thumbnail}
+                aspectRatio={activeVideo.aspectRatio}
+                title={activeTitle}
+                bunnyLibraryId={activeVideo.bunnyLibraryId}
+                bunnyVideoId={activeVideo.bunnyVideoId}
+              />
+            </div>
 
-        {/* 1. FEATURED / THEATER VIDEO PRESENTATION */}
-        <div className="mb-16">
-          <div className="relative rounded-2xl md:rounded-3xl p-1 bg-gradient-to-b from-purple-500/30 via-purple-500/10 to-transparent shadow-2xl">
-            <div className="bg-[var(--bg-surface)] rounded-[14px] md:rounded-[22px] overflow-hidden border border-[var(--border-subtle)]">
-              {/* Theater Top Bar: Title on Left, Best One Badge on Right */}
-              <div className="px-5 py-3.5 bg-[var(--bg-surface-elevated)] border-b border-[var(--border-subtle)] flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <Play className="w-4 h-4 text-purple-400 shrink-0" />
-                  <h2 className="font-display font-bold text-sm sm:text-base text-[var(--text-primary)] truncate">
-                    {activeVideo.title[locale] || activeVideo.title.en}
-                  </h2>
-                </div>
+            <div className="lg:col-span-5 flex flex-col justify-between">
+              <div>
+                {/* Best One badge strictly separate above title */}
+                {activeVideo.id === bestOne.id && (
+                  <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--accent)] mb-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                    <span>Best One</span>
+                  </div>
+                )}
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {isCurrentActiveBestOne && (
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 font-semibold text-xs shadow-sm whitespace-nowrap">
-                      <Star className="w-3.5 h-3.5 fill-amber-300" />
-                      <span>Best One</span>
-                    </div>
-                  )}
+                <h2 className="font-display text-2xl sm:text-3xl font-semibold tracking-[-0.02em] text-[var(--text-primary)] leading-snug mb-3">
+                  {activeTitle}
+                </h2>
 
-                  {activeVideo.aspectRatio && (
-                    <span className="hidden sm:inline-block px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs font-mono text-[var(--text-muted)]">
-                      {activeVideo.aspectRatio}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Theater Video Player */}
-              <div className="p-2 sm:p-4 bg-black/60">
-                <VideoPlayer
-                  key={activeVideo.id}
-                  provider={activeVideo.videoProvider}
-                  url={activeVideo.videoUrl}
-                  poster={activeVideo.thumbnail}
-                  aspectRatio={activeVideo.aspectRatio || '16:9'}
-                  title={activeVideo.title[locale] || activeVideo.title.en}
-                  autoPlayMuted={false}
-                />
-              </div>
-
-              {/* Short Description (Only when provided) */}
-              {(activeVideo.shortDescription?.[locale] || activeVideo.shortDescription?.en) && (
-                <div className="px-6 py-4 bg-[var(--bg-surface)] border-t border-[var(--border-subtle)]">
-                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed max-w-3xl">
-                    {activeVideo.shortDescription?.[locale] || activeVideo.shortDescription?.en}
+                {activeDesc && (
+                  <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
+                    {activeDesc}
                   </p>
+                )}
+
+                <dl className="divide-y divide-[var(--border-subtle)] border-t border-b border-[var(--border-subtle)] text-xs mb-6">
+                  <div className="py-2.5 flex justify-between gap-4">
+                    <dt className="text-[var(--text-muted)]">
+                      {locale === 'fr' ? 'Client' : 'Client'}
+                    </dt>
+                    <dd className="text-[var(--text-primary)] font-medium text-right">
+                      {activeVideo.client || folderName}
+                    </dd>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-4">
+                    <dt className="text-[var(--text-muted)]">
+                      {locale === 'fr' ? 'Rôle' : 'Role'}
+                    </dt>
+                    <dd className="text-[var(--text-primary)] font-medium text-right">
+                      {activeVideo.role[locale] || activeVideo.role.en}
+                    </dd>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-4">
+                    <dt className="text-[var(--text-muted)]">Format</dt>
+                    <dd className="text-[var(--text-primary)] font-medium text-right">
+                      {activeVideo.format || activeVideo.aspectRatio}
+                    </dd>
+                  </div>
+                  <div className="py-2.5 flex justify-between gap-4">
+                    <dt className="text-[var(--text-muted)]">
+                      {locale === 'fr' ? 'Année' : 'Year'}
+                    </dt>
+                    <dd className="text-[var(--text-primary)] font-medium tabular-nums">
+                      {activeVideo.year}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  {activeVideo.id !== bestOne.id && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveVideo(bestOne)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      <span>{locale === 'fr' ? 'Revenir à Best One' : 'Back to Best One'}</span>
+                    </button>
+                  )}
+
+                  <Link
+                    href={`/${locale}/work/${activeVideo.slug}`}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md border border-[var(--border-strong)] text-xs font-medium text-[var(--text-primary)] hover:border-[var(--text-primary)] transition-colors"
+                  >
+                    <span>
+                      {locale === 'fr' ? 'Ouvrir la fiche complète' : 'Open Full Case Study'}
+                    </span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 2. REMAINING VIDEOS UNDERNEATH IN CLEAN RESPONSIVE GRID */}
-        {otherVideos.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-8 pb-4 border-b border-[var(--border-subtle)]">
-              <h3 className="font-display text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">
-                {locale === 'en' ? `More Videos from ${folderName}` : `Autres vidéos de ${folderName}`}
+        {/* Remaining Folder Videos Strictly Below Best One */}
+        {remainingVideos.length > 0 && (
+          <section className="pt-10 border-t border-[var(--border-subtle)]">
+            <div className="flex items-baseline justify-between mb-8">
+              <h3 className="font-display text-xl sm:text-2xl font-semibold text-[var(--text-primary)]">
+                {locale === 'fr' ? 'Autres vidéos du dossier' : 'More in this folder'}
               </h3>
-              <span className="text-xs font-mono text-[var(--text-muted)]">
-                {otherVideos.length} {otherVideos.length === 1 ? 'video' : 'videos'}
+              <span className="text-xs text-[var(--text-muted)] tabular-nums">
+                {remainingVideos.length}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {otherVideos.map((video) => {
-                const videoTitle = video.title[locale] || video.title.en;
-                const videoDesc = video.shortDescription?.[locale] || video.shortDescription?.en;
-                const isBest = video.id === bestOne.id;
-
-                return (
-                  <article
-                    key={video.id}
-                    onClick={() => {
-                      setActiveVideo(video);
-                      window.scrollTo({ top: 160, behavior: 'smooth' });
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
+              {remainingVideos.map((proj) => (
+                <div
+                  key={proj.id}
+                  className={
+                    activeVideo.id === proj.id
+                      ? 'ring-1 ring-[var(--accent)] rounded-lg p-2 -m-2 transition-all'
+                      : ''
+                  }
+                >
+                  <ProjectCard
+                    project={proj}
+                    locale={locale}
+                    folderName={folderName}
+                    onQuickWatch={(selected) => {
+                      setActiveVideo(selected);
+                      window.scrollTo({ top: 140, behavior: 'smooth' });
                     }}
-                    className="group flex flex-col bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-subtle)] hover:border-purple-500/40 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 cursor-pointer"
-                  >
-                    {/* Media Card */}
-                    <div className="relative aspect-video w-full overflow-hidden bg-black/40">
-                      <VideoThumbnail
-                        thumbnailUrl={video.thumbnail}
-                        title={videoTitle}
-                        folderName={folderName}
-                        aspectRatio={video.aspectRatio || '16:9'}
-                      />
-
-                      {video.aspectRatio && (
-                        <div className="absolute bottom-3 right-3 z-10 px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-white text-[10px] font-mono">
-                          {video.aspectRatio}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Card Content */}
-                    <div className="p-5 flex-1 flex flex-col justify-between">
-                      <div>
-                        {/* Title on Left, Best One Badge on Right */}
-                        <div className="flex items-start justify-between gap-2.5 mb-2">
-                          <h4 className="font-display text-base font-bold text-[var(--text-primary)] group-hover:text-purple-400 transition-colors leading-snug flex-1 min-w-0">
-                            {videoTitle}
-                          </h4>
-
-                          {isBest && (
-                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold shadow-sm whitespace-nowrap mt-0.5">
-                              <Star className="w-2.5 h-2.5 fill-amber-300" />
-                              <span>Best One</span>
-                            </span>
-                          )}
-                        </div>
-
-                        {videoDesc && (
-                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-                            {videoDesc}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs text-purple-400 font-semibold">
-                        <span>{locale === 'en' ? 'Play in Theater' : 'Lire la vidéo'}</span>
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
+                  />
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
     </div>

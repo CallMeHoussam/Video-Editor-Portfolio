@@ -4,20 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Locale, SiteSettings } from '@/types/portfolio';
 import { translations } from '@/lib/translations';
-import {
-  MessageSquare,
-  ArrowUp,
-  MapPin,
-  Mail,
-  Phone,
-  FileText
-} from 'lucide-react';
-import {
-  LinkedInIcon,
-  InstagramIcon,
-  XIcon,
-  YouTubeIcon
-} from './SocialIcons';
+import { LinkedInIcon, InstagramIcon, XIcon, YouTubeIcon } from './SocialIcons';
+import { ArrowUp } from 'lucide-react';
 
 interface FooterProps {
   locale: Locale;
@@ -26,110 +14,106 @@ interface FooterProps {
 
 export function Footer({ locale, settings }: FooterProps) {
   const t = translations[locale].footer;
+  const tNav = translations[locale].nav;
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const cvHref = locale === 'fr' ? '/files/cv/Houssam_CV_FRA.pdf' : '/files/cv/Houssam_CV_ENG.pdf';
+  const cvHref =
+    settings.cvFiles?.[locale] ||
+    (locale === 'fr' ? '/files/cv/Houssam_CV_FRA.pdf' : '/files/cv/Houssam_CV_ENG.pdf');
   const cvFileName = locale === 'fr' ? 'Houssam_CV_FR.pdf' : 'Houssam_CV_ENG.pdf';
 
   return (
-    <footer className="bg-[var(--bg-secondary)] border-t border-[var(--border-subtle)] pt-16 pb-12 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12 pb-14">
-          {/* Brand Info Column */}
-          <div className="lg:col-span-5 space-y-4">
+    <footer className="bg-[var(--bg-primary)] border-t border-[var(--border-subtle)] pt-14 pb-10">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12">
+          {/* Identity */}
+          <div className="md:col-span-5">
             <Link
               href={`/${locale}`}
-              className="inline-block font-display text-2xl font-black tracking-tight text-[var(--text-primary)]"
+              className="inline-flex items-baseline gap-1 font-display text-xl font-semibold tracking-[-0.025em] text-[var(--text-primary)] mb-3"
             >
               <span>Evoless</span>
-              <span className="text-purple-400">.</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
             </Link>
-
-            <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-sm leading-relaxed">
-              {locale === 'en'
-                ? 'Dynamic, conversion-focused video editing and motion design for visionary brands, agencies, and creators worldwide.'
-                : 'Montage vidéo dynamique axé sur la rétention et motion design pour marques, agences et créateurs.'}
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-xs leading-relaxed mb-5">
+              {t.brandTagline}
             </p>
 
-            {/* Social Links */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 text-[var(--text-muted)]">
               {settings.linkedInUrl && (
                 <a
                   href={settings.linkedInUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="LinkedIn Profile"
-                  className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-purple-400 hover:border-purple-500/40 transition-all"
+                  aria-label="LinkedIn"
+                  className="p-2 rounded border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
                 >
-                  <LinkedInIcon className="w-4 h-4" />
+                  <LinkedInIcon className="w-3.5 h-3.5" />
                 </a>
               )}
-
               {settings.instagramUrl && (
                 <a
                   href={settings.instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Instagram Profile"
-                  className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-purple-400 hover:border-purple-500/40 transition-all"
+                  aria-label="Instagram"
+                  className="p-2 rounded border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
                 >
-                  <InstagramIcon className="w-4 h-4" />
+                  <InstagramIcon className="w-3.5 h-3.5" />
                 </a>
               )}
-
               {settings.xUrl && (
                 <a
                   href={settings.xUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="X Profile"
-                  className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-purple-400 hover:border-purple-500/40 transition-all"
+                  aria-label="X"
+                  className="p-2 rounded border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
                 >
-                  <XIcon className="w-4 h-4" />
+                  <XIcon className="w-3.5 h-3.5" />
                 </a>
               )}
-
               {settings.youtubeUrl && (
                 <a
                   href={settings.youtubeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="YouTube Channel"
-                  className="p-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-purple-400 hover:border-purple-500/40 transition-all"
+                  aria-label="YouTube"
+                  className="p-2 rounded border border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-hover)] transition-colors"
                 >
-                  <YouTubeIcon className="w-4 h-4" />
+                  <YouTubeIcon className="w-3.5 h-3.5" />
                 </a>
               )}
             </div>
           </div>
 
-          {/* Quick Navigation Links */}
-          <div className="lg:col-span-3">
-            <h4 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--text-primary)] mb-4">
+          {/* Navigation */}
+          <div className="md:col-span-3">
+            <h4 className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-4">
               {t.quickLinks}
             </h4>
             <ul className="space-y-2.5 text-xs sm:text-sm text-[var(--text-secondary)]">
               <li>
-                <Link href={`/${locale}#work`} className="hover:text-purple-400 transition-colors">
-                  {locale === 'en' ? 'Selected Work' : 'Projets Sélectionnés'}
+                <Link href={`/${locale}#work`} className="hover:text-[var(--text-primary)] transition-colors">
+                  {tNav.work}
                 </Link>
               </li>
               <li>
-                <Link href={`/${locale}#services`} className="hover:text-purple-400 transition-colors">
-                  {locale === 'en' ? 'Craft & Services' : 'Expertise & Savoir-faire'}
+                <Link href={`/${locale}#services`} className="hover:text-[var(--text-primary)] transition-colors">
+                  {tNav.services}
                 </Link>
               </li>
               <li>
-                <Link href={`/${locale}#about`} className="hover:text-purple-400 transition-colors">
-                  {locale === 'en' ? 'About & Skills' : 'À Propos & Compétences'}
+                <Link href={`/${locale}#about`} className="hover:text-[var(--text-primary)] transition-colors">
+                  {tNav.about}
                 </Link>
               </li>
               <li>
-                <Link href={`/${locale}#experience`} className="hover:text-purple-400 transition-colors">
-                  {locale === 'en' ? 'Career Experience' : 'Parcours & Expérience'}
+                <Link href={`/${locale}#contact`} className="hover:text-[var(--text-primary)] transition-colors">
+                  {tNav.contact}
                 </Link>
               </li>
               <li>
@@ -138,61 +122,53 @@ export function Footer({ locale, settings }: FooterProps) {
                   download={cvFileName}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-purple-400 transition-colors"
+                  className="hover:text-[var(--text-primary)] transition-colors"
                 >
-                  {locale === 'en' ? 'Download CV (EN)' : 'Télécharger mon CV (FR)'}
+                  {tNav.downloadCv}
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Direct Contact Column */}
-          <div className="lg:col-span-4">
-            <h4 className="font-display font-bold text-sm uppercase tracking-wider text-[var(--text-primary)] mb-4">
+          {/* Direct Contact */}
+          <div className="md:col-span-4">
+            <h4 className="text-[11px] uppercase tracking-[0.14em] text-[var(--text-muted)] mb-4">
               {t.contactDirect}
             </h4>
-            <div className="space-y-3 text-xs sm:text-sm text-[var(--text-secondary)]">
+            <div className="space-y-2.5 text-xs sm:text-sm text-[var(--text-secondary)]">
+              <a
+                href={`mailto:${settings.contactEmail}`}
+                className="block hover:text-[var(--text-primary)] transition-colors"
+              >
+                {settings.contactEmail}
+              </a>
               <a
                 href={`https://wa.me/${settings.whatsappNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2.5 hover:text-purple-400 transition-colors"
+                className="block font-mono tabular-nums hover:text-[var(--text-primary)] transition-colors"
               >
-                <Phone className="w-4 h-4 text-purple-400 shrink-0" />
-                <span className="font-mono">{settings.phone}</span>
+                {settings.phone}
               </a>
-
-              <a
-                href={`mailto:${settings.contactEmail}`}
-                className="flex items-center gap-2.5 hover:text-purple-400 transition-colors"
-              >
-                <Mail className="w-4 h-4 text-purple-400 shrink-0" />
-                <span>{settings.contactEmail}</span>
-              </a>
-
-              <div className="flex items-center gap-2.5 text-[var(--text-muted)]">
-                <MapPin className="w-4 h-4 text-purple-400 shrink-0" />
-                <span>{settings.location}</span>
-              </div>
+              <p className="text-[var(--text-muted)]">{settings.location}</p>
             </div>
           </div>
         </div>
 
-        {/* Bottom Bar: Copyright (discreet entry to /studio) & Back to Top */}
-        <div className="pt-8 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--text-muted)]">
-          {/* Discreet admin entry point: clicking the copyright text itself navigates to /studio */}
+        {/* Bottom Copyright & Discreet Studio Access */}
+        <div className="pt-7 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--text-muted)]">
           <Link
             id="copyright-admin-link"
             href="/studio"
             className="text-inherit hover:text-[var(--text-secondary)] transition-colors cursor-pointer select-none"
-            title=""
           >
             © {new Date().getFullYear()} Evoless · Houssam Elmsafer. {t.rights}
           </Link>
 
           <button
+            type="button"
             onClick={scrollToTop}
-            className="flex items-center gap-1.5 hover:text-purple-400 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 hover:text-[var(--text-primary)] transition-colors cursor-pointer"
           >
             <span>{t.backToTop}</span>
             <ArrowUp className="w-3.5 h-3.5" />

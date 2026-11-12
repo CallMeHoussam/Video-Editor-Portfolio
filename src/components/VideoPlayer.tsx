@@ -3,6 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, AlertCircle } from 'lucide-react';
 import { VideoProvider } from '@/types/portfolio';
+import { parseBunnyReference } from '@/lib/video-utils';
 
 interface VideoPlayerProps {
   provider: VideoProvider;
@@ -10,6 +11,7 @@ interface VideoPlayerProps {
   poster?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1' | '4:5';
   title?: string;
+  r2Key?: string;
   bunnyLibraryId?: string;
   bunnyVideoId?: string;
   autoPlayMuted?: boolean;
@@ -22,10 +24,11 @@ export function VideoPlayer({
   poster,
   aspectRatio = '16:9',
   title = 'Video Player',
+  r2Key,
   bunnyLibraryId,
   bunnyVideoId,
   autoPlayMuted = false,
-  className = ''
+  className = '',
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -35,19 +38,80 @@ export function VideoPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [hasError, setHasError] = useState(false);
-  const [signedEmbedUrl, setSignedEmbedUrl] = useState<string | null>(null);
+  const [r2PlaybackUrl, setR2PlaybackUrl] = useState<string | null>(null);
+  const [r2Loading, setR2Loading] = useState(provider === 'r2');
+  const [bunnyState, setBunnyState] = useState<{
+    status: 'idle' | 'loading' | 'ready' | 'error';
+    embedUrl: string | null;
+    errorMessage?: string;
+  }>(() => ({
+    status: provider === 'bunny' ? 'loading' : 'idle',
+    embedUrl: null,
+  }));
   const [showControls, setShowControls] = useState(true);
+  const [retryNonce, setRetryNonce] = useState(0);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Aspect ratio class helper
-  const aspectClass = {
-    '16:9': 'aspect-video w-full',
-    '9:16': 'aspect-[9/16] w-full max-w-[380px] mx-auto shadow-2xl rounded-2xl',
-    '1:1': 'aspect-square w-full max-w-[500px] mx-auto rounded-2xl',
-    '4:5': 'aspect-[4/5] w-full max-w-[440px] mx-auto rounded-2xl'
-  }[aspectRatio] || 'aspect-video w-full';
+  const aspectClass =
+    {
+      '16:9': 'aspect-video w-full',
+      '9:16': 'aspect-[9/16] w-full max-w-[380px] mx-auto',
+      '1:1': 'aspect-square w-full max-w-[500px] mx-auto',
+      '4:5': 'aspect-[4/5] w-full max-w-[440px] mx-auto',
+    }[aspectRatio] || 'aspect-video w-full';
 
-  // Coordinate global single playback (pause other videos when any video plays)
+  // Resolve Cloudflare R2 signed playback URL
+  useEffect(() => {
+    if (provider !== 'r2') return;
+
+    let cancelled = false;
+    let refreshTimer: NodeJS.Timeout | null = null;
+
+    async function fetchR2SignedPlayback() {
+      await Promise.resolve();
+      if (cancelled) return;
+      setR2Loading(true);
+
+      try {
+        const res = await fetch('/api/video/r2/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: r2Key, url, expiresIn: 3600 }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (res.ok && data.success && data.playbackUrl) {
+          setR2PlaybackUrl(data.playbackUrl);
+          setR2Loading(false);
+
+          // Seamless auto-refresh 5 minutes before the 1-hour expiration
+          const refreshMs = Math.max(60000, ((data.expiresInSeconds || 3600) - 300) * 1000);
+          refreshTimer = setTimeout(() => {
+            if (!cancelled) fetchR2SignedPlayback();
+          }, refreshMs);
+        } else {
+          // If direct token generation fails or R2 isn't configured, fall back to stream route
+          const streamUrl = `/api/video/r2/stream?key=${encodeURIComponent(r2Key || url.replace(/^r2:\/\//, ''))}`;
+          setR2PlaybackUrl(streamUrl);
+          setR2Loading(false);
+        }
+      } catch {
+        if (cancelled) return;
+        const streamUrl = `/api/video/r2/stream?key=${encodeURIComponent(r2Key || url.replace(/^r2:\/\//, ''))}`;
+        setR2PlaybackUrl(streamUrl);
+        setR2Loading(false);
+      }
+    }
+
+    fetchR2SignedPlayback();
+
+    return () => {
+      cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
+    };
+  }, [provider, url, r2Key, retryNonce]);
   useEffect(() => {
     const handleGlobalPlay = (e: Event) => {
       if (videoRef.current && e.target !== videoRef.current && !videoRef.current.paused) {
@@ -59,39 +123,80 @@ export function VideoPlayer({
     return () => window.removeEventListener('play', handleGlobalPlay, true);
   }, []);
 
-  // Request signed token for Bunny Stream if needed
+  const parsedBunny = parseBunnyReference(url || '', bunnyLibraryId);
+  const resolvedVideoId = bunnyVideoId || parsedBunny.videoId || '';
+  const resolvedLibraryId = bunnyLibraryId || parsedBunny.libraryId || '';
+
   useEffect(() => {
-    if (provider === 'bunny' && (bunnyVideoId || url)) {
-      const vidId = bunnyVideoId || url.split('/').pop()?.split('?')[0];
-      if (vidId) {
-        fetch('/api/video/token', {
+    if (provider !== 'bunny') return;
+
+    let cancelled = false;
+    async function authorizeBunnyPlayback() {
+      await Promise.resolve();
+      if (cancelled) return;
+
+      if (!resolvedVideoId && !url) {
+        setBunnyState({
+          status: 'error',
+          embedUrl: null,
+          errorMessage: 'Bunny Stream video reference is missing.',
+        });
+        return;
+      }
+
+      setBunnyState((prev) =>
+        prev.status === 'loading' ? prev : { status: 'loading', embedUrl: null }
+      );
+
+      try {
+        const res = await fetch('/api/video/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ videoId: vidId, libraryId: bunnyLibraryId })
-        })
-          .then(res => res.json())
-          .then(data => {
-            if (data.embedUrl) {
-              setSignedEmbedUrl(data.embedUrl);
-            }
-          })
-          .catch(() => {
-            // Fallback direct embed
-            setSignedEmbedUrl(`https://iframe.mediadelivery.net/embed/${bunnyLibraryId || ''}/${vidId}?autoplay=false`);
+          body: JSON.stringify({
+            videoId: resolvedVideoId || undefined,
+            libraryId: resolvedLibraryId || undefined,
+            url: url || undefined,
+            autoplay: autoPlayMuted,
+          }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (res.ok && data.success && data.embedUrl) {
+          setBunnyState({
+            status: 'ready',
+            embedUrl: data.embedUrl,
           });
+        } else {
+          setBunnyState({
+            status: 'error',
+            embedUrl: null,
+            errorMessage: data.message || 'Protected playback session could not be established.',
+          });
+        }
+      } catch {
+        if (cancelled) return;
+        setBunnyState({
+          status: 'error',
+          embedUrl: null,
+          errorMessage: 'Unable to reach playback authorization service.',
+        });
       }
     }
-  }, [provider, bunnyVideoId, bunnyLibraryId, url]);
 
-  // Extract Embed URLs for Bunny, Vimeo, YouTube, and Google Drive
-  const getEmbedUrl = () => {
-    if (provider === 'bunny') {
-      return signedEmbedUrl || (bunnyVideoId ? `https://iframe.mediadelivery.net/embed/${bunnyLibraryId || ''}/${bunnyVideoId}` : url);
-    }
+    authorizeBunnyPlayback();
+    return () => {
+      cancelled = true;
+    };
+  }, [provider, url, resolvedVideoId, resolvedLibraryId, autoPlayMuted, retryNonce]);
+
+  const getNonBunnyEmbedUrl = (): string | null => {
+    if (provider === 'bunny') return null;
 
     if (provider === 'googledrive' || (url && url.includes('drive.google.com'))) {
-      const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
-        url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      const driveMatch =
+        url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
       if (driveMatch && driveMatch[1]) {
         return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
       }
@@ -101,12 +206,14 @@ export function VideoPlayer({
     if (provider === 'vimeo' || (url && url.includes('vimeo.com'))) {
       const match = url.match(/(?:vimeo\.com\/|video\/)(\d+)/);
       const vimeoId = match ? match[1] : url;
-      return `https://player.vimeo.com/video/${vimeoId}?autoplay=0&muted=0&color=8b5cf6&title=0&byline=0&portrait=0`;
+      return `https://player.vimeo.com/video/${vimeoId}?autoplay=${autoPlayMuted ? 1 : 0}&muted=${autoPlayMuted ? 1 : 0}&title=0&byline=0&portrait=0&dnt=1`;
     }
 
     if (provider === 'youtube' || (url && (url.includes('youtube.com') || url.includes('youtu.be')))) {
       let ytId = url;
-      const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/);
+      const ytMatch = url.match(
+        /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([a-zA-Z0-9_-]{11})/
+      );
       if (ytMatch && ytMatch[1]) {
         ytId = ytMatch[1];
       }
@@ -116,9 +223,8 @@ export function VideoPlayer({
     return null;
   };
 
-  const embedSrc = getEmbedUrl();
+  const embedSrc = provider === 'bunny' ? bunnyState.embedUrl : getNonBunnyEmbedUrl();
 
-  // Direct Video Handlers
   const handlePlayToggle = () => {
     if (!videoRef.current) return;
     if (videoRef.current.paused) {
@@ -166,6 +272,7 @@ export function VideoPlayer({
   };
 
   const formatTime = (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
@@ -179,62 +286,58 @@ export function VideoPlayer({
     }, 2500);
   };
 
-  // If using external embed (Bunny, Vimeo, YouTube)
-  // Elegant replaceable placeholder if actual footage is unavailable
-  if (provider === 'placeholder' || (!url && !embedSrc)) {
+  const preventContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
+  // Bunny Stream states: never render raw/unsigned iframe while loading or errored
+  if (provider === 'bunny') {
+    if (bunnyState.status === 'loading' || bunnyState.status === 'idle') {
+      return (
+        <div
+          onContextMenu={preventContextMenu}
+          className={`relative overflow-hidden bg-[#0B0B0E] border border-[var(--border-subtle)] rounded-lg select-none flex flex-col items-center justify-center p-6 text-center ${aspectClass} ${className}`}
+        >
+          <div className="w-7 h-7 rounded-full border-2 border-white/15 border-t-[var(--accent)] animate-spin mb-3" />
+          <p className="text-xs tracking-wide text-[#9E9CA6]">Preparing video playback</p>
+        </div>
+      );
+    }
+
+    if (bunnyState.status === 'error' || !embedSrc) {
+      return (
+        <div
+          onContextMenu={preventContextMenu}
+          className={`relative overflow-hidden bg-[#0B0B0E] border border-[var(--border-subtle)] rounded-lg select-none flex flex-col items-center justify-center p-6 text-center ${aspectClass} ${className}`}
+        >
+          <AlertCircle className="w-6 h-6 text-[#9E9CA6] mb-3" />
+          <p className="text-sm font-medium text-[#F4F3F0] mb-1">Video playback unavailable</p>
+          <p className="text-xs text-[#9E9CA6] max-w-sm mb-4">
+            {bunnyState.errorMessage || 'Unable to verify playback authorization.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setRetryNonce((n) => n + 1)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded border border-white/15 text-xs text-[#F4F3F0] hover:bg-white/5 transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Retry
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div
-        className={`relative group overflow-hidden bg-gradient-to-br from-[#181326] via-[#0E0C15] to-[#08070D] border border-purple-500/20 rounded-2xl select-none flex flex-col items-center justify-center p-6 text-center ${aspectClass} ${className}`}
+        onContextMenu={preventContextMenu}
+        className={`relative overflow-hidden bg-[#070709] border border-[var(--border-subtle)] rounded-lg select-none ${aspectClass} ${className}`}
       >
-        {/* Subtle ambient glow */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.18)_0,transparent_70%)] pointer-events-none" />
-
-        {/* Cinematic Header Badges */}
-        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 text-[10px] sm:text-xs font-mono text-purple-300/80 tracking-widest uppercase">
-          EVOLESS // EDITORIAL SHOWREEL
-        </div>
-        <div className="absolute top-4 right-4 sm:top-6 sm:right-6 text-[10px] sm:text-xs font-mono px-2.5 py-0.5 rounded bg-purple-900/40 border border-purple-500/30 text-purple-200 font-semibold tracking-wide">
-          4K UHD · 24 FPS
-        </div>
-
-        {/* Center Brand Reel Indicator */}
-        <div className="relative z-10 max-w-md mx-auto">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-4 bg-purple-600/20 border-2 border-purple-500 flex items-center justify-center text-purple-300 shadow-xl shadow-purple-950/60 group-hover:scale-105 transition-transform duration-300">
-            <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1 fill-purple-300" />
-          </div>
-
-          <h3 className="text-lg sm:text-2xl font-bold tracking-tight text-white mb-2">
-            {title || 'Evoless — Creative Showreel'}
-          </h3>
-
-          <p className="text-xs sm:text-sm text-purple-200/80 mb-4 px-4 py-2 rounded-xl bg-purple-950/30 border border-purple-500/20 max-w-sm mx-auto leading-relaxed">
-            Commercial Advertising · High-Retention Social Reels · Motion Design
-          </p>
-
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-mono text-emerald-300">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Available for New Projects</span>
-          </div>
-        </div>
-
-        {/* Cinematic Bottom Metadata Bar */}
-        <div className="absolute bottom-3 left-4 right-4 sm:bottom-4 sm:left-6 sm:right-6 flex items-center justify-between text-[10px] sm:text-xs font-mono text-zinc-400 border-t border-white/5 pt-2">
-          <span>CINEMATIC SOUND DESIGN</span>
-          <span className="text-purple-400">COLOR MASTERED (REC.709)</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (embedSrc) {
-
-    return (
-      <div className={`relative overflow-hidden bg-black/40 border border-purple-500/20 rounded-2xl ${aspectClass} ${className}`}>
         <iframe
           src={embedSrc}
           title={title}
-          className="w-full h-full border-0 rounded-2xl"
+          className="w-full h-full border-0"
           allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+          referrerPolicy="origin"
           allowFullScreen
           loading="lazy"
         />
@@ -242,103 +345,169 @@ export function VideoPlayer({
     );
   }
 
-  // Direct HTML5 Video Player with cinematic controls
+  // Unavailable or unlinked video placeholder (minimal editorial slate)
+  if (provider === 'placeholder' || (!url && !embedSrc)) {
+    return (
+      <div
+        onContextMenu={preventContextMenu}
+        className={`relative overflow-hidden bg-[#0D0D11] border border-[var(--border-subtle)] rounded-lg select-none flex flex-col items-center justify-center p-8 text-center ${aspectClass} ${className}`}
+      >
+        {poster && (
+          <img
+            src={poster}
+            alt={title}
+            draggable={false}
+            className="absolute inset-0 w-full h-full object-cover opacity-35"
+          />
+        )}
+        <div className="relative z-10 max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full mx-auto mb-4 bg-white/5 border border-white/15 flex items-center justify-center text-[#F4F3F0]">
+            <Play className="w-4 h-4 ml-0.5 fill-current" />
+          </div>
+          <p className="text-sm font-medium text-[#F4F3F0] mb-1">
+            {title || 'Video not yet linked'}
+          </p>
+          <p className="text-xs text-[#9E9CA6]">
+            Connect a Bunny Stream asset or supported video link in Studio.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (embedSrc) {
+    return (
+      <div
+        onContextMenu={preventContextMenu}
+        className={`relative overflow-hidden bg-[#070709] border border-[var(--border-subtle)] rounded-lg select-none ${aspectClass} ${className}`}
+      >
+        <iframe
+          src={embedSrc}
+          title={title}
+          className="w-full h-full border-0"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen"
+          referrerPolicy="origin"
+          allowFullScreen
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  // Cloudflare R2 loading state
+  if (provider === 'r2' && r2Loading && !r2PlaybackUrl) {
+    return (
+      <div
+        onContextMenu={preventContextMenu}
+        className={`relative overflow-hidden bg-[#0B0B0E] border border-[var(--border-subtle)] rounded-lg select-none flex flex-col items-center justify-center p-6 text-center ${aspectClass} ${className}`}
+      >
+        <div className="w-7 h-7 rounded-full border-2 border-white/15 border-t-[var(--accent)] animate-spin mb-3" />
+        <p className="text-xs tracking-wide text-[#9E9CA6]">Authorizing private playback session...</p>
+      </div>
+    );
+  }
+
+  // Active video source: R2 signed URL, or direct URL (handling GitHub raw conversions)
+  let activeVideoSrc = provider === 'r2' ? (r2PlaybackUrl || url) : url;
+  if (activeVideoSrc && activeVideoSrc.includes('github.com') && activeVideoSrc.includes('/blob/')) {
+    activeVideoSrc = activeVideoSrc.replace('github.com/', 'raw.githubusercontent.com/').replace('/blob/', '/');
+  }
+
+  // Custom restrained HTML5 Player for direct video files and Cloudflare R2
   return (
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-      className={`relative group overflow-hidden bg-[#0B0A0F] border border-purple-500/20 rounded-2xl select-none ${aspectClass} ${className}`}
+      onContextMenu={preventContextMenu}
+      className={`relative group overflow-hidden bg-[#070709] border border-[var(--border-subtle)] rounded-lg select-none ${aspectClass} ${className}`}
     >
       {hasError ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#15121C] text-[#A7A1B3]">
-          <AlertCircle className="w-10 h-10 text-purple-400 mb-2" />
-          <p className="text-sm font-medium">Video preview unavailable.</p>
-          <p className="text-xs text-muted-foreground mt-1">Please check source link or verify video hosting.</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#0D0D11] text-[#9E9CA6]">
+          <AlertCircle className="w-7 h-7 text-[#9E9CA6] mb-2" />
+          <p className="text-sm font-medium text-[#F4F3F0]">Video preview unavailable.</p>
+          <p className="text-xs text-[#9E9CA6] mt-1">Verify the source stream in Studio.</p>
         </div>
       ) : (
         <>
           <video
             ref={videoRef}
-            src={url}
+            src={activeVideoSrc}
             poster={poster}
             playsInline
             preload="metadata"
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
+            onContextMenu={preventContextMenu}
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
+            onEnded={() => setIsPlaying(false)}
             onError={() => setHasError(true)}
             onClick={handlePlayToggle}
             className="w-full h-full object-cover cursor-pointer"
           />
 
-          {/* Large Center Play Button when paused */}
           {!isPlaying && (
             <button
+              type="button"
               onClick={handlePlayToggle}
               aria-label="Play video"
-              className="absolute inset-0 m-auto w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-full bg-purple-600/90 text-white shadow-2xl backdrop-blur-md hover:scale-105 active:scale-95 transition-all duration-300 z-10"
+              className="absolute inset-0 m-auto w-14 h-14 flex items-center justify-center rounded-full bg-[#0A0A0C]/80 border border-white/25 text-white backdrop-blur-sm hover:scale-105 transition-transform duration-200 z-10"
             >
-              <Play className="w-8 h-8 md:w-10 md:h-10 ml-1 fill-white" />
+              <Play className="w-5 h-5 ml-0.5 fill-white" />
             </button>
           )}
 
-          {/* Ambient Film Vignette Gradient */}
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/80 via-transparent to-black/30" />
-
-          {/* Floating Glass Control Bar */}
           <div
-            className={`absolute bottom-3 left-3 right-3 md:bottom-4 md:left-4 md:right-4 z-20 transition-opacity duration-300 ${
+            className={`absolute bottom-3 left-3 right-3 z-20 transition-opacity duration-300 ${
               showControls || !isPlaying ? 'opacity-100' : 'opacity-0 pointer-events-none'
             }`}
           >
-            <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 md:px-4 md:py-2.5 flex flex-col gap-1.5 shadow-2xl">
-              {/* Progress Scrubber Bar */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0"
-                  max={duration || 100}
-                  step="0.1"
-                  value={currentTime}
-                  onChange={handleSeek}
-                  aria-label="Video scrubber"
-                  className="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-purple-500 hover:h-2 transition-all"
-                />
-              </div>
+            <div className="bg-[#0B0B0E]/85 backdrop-blur-md border border-white/10 rounded-lg px-3 py-2 flex flex-col gap-1.5">
+              <input
+                type="range"
+                min="0"
+                max={duration || 100}
+                step="0.1"
+                value={currentTime}
+                onChange={handleSeek}
+                aria-label="Video scrubber"
+                className="w-full h-1 bg-white/20 rounded-full appearance-none cursor-pointer accent-[#8B74FF]"
+              />
 
-              {/* Bottom Row Controls */}
               <div className="flex items-center justify-between text-xs text-white/90">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <button
+                    type="button"
                     onClick={handlePlayToggle}
                     aria-label={isPlaying ? 'Pause' : 'Play'}
-                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                    className="p-1 rounded hover:bg-white/10 transition-colors"
                   >
-                    {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-white" />}
+                    {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5 fill-white" />}
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleMuteToggle}
                     aria-label={isMuted ? 'Unmute' : 'Mute'}
-                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                    className="p-1 rounded hover:bg-white/10 transition-colors"
                   >
-                    {isMuted ? <VolumeX className="w-4 h-4 text-purple-300" /> : <Volume2 className="w-4 h-4" />}
+                    {isMuted ? <VolumeX className="w-3.5 h-3.5 text-white/60" /> : <Volume2 className="w-3.5 h-3.5" />}
                   </button>
 
-                  <span className="font-mono text-[11px] text-white/70">
+                  <span className="font-mono text-[11px] tabular-nums text-white/70">
                     {formatTime(currentTime)} / {formatTime(duration)}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleFullscreen}
-                    aria-label="Toggle Fullscreen"
-                    className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                  >
-                    <Maximize className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleFullscreen}
+                  aria-label="Toggle Fullscreen"
+                  className="p-1 rounded hover:bg-white/10 transition-colors"
+                >
+                  <Maximize className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>

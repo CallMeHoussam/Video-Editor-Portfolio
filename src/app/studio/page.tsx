@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { StudioDashboard } from '@/components/StudioDashboard';
 import { StudioLogin } from '@/components/StudioLogin';
 import { checkIsAdminServerSide } from '@/lib/auth';
-import { getPortfolioData } from '@/lib/cms-store';
+import { getPortfolioDataAsync } from '@/lib/cms-store';
 
 export const metadata: Metadata = {
   title: 'Evoless Studio CMS — Portfolio Management',
@@ -23,6 +23,6 @@ export default async function StudioPage() {
     return <StudioLogin />;
   }
 
-  const data = getPortfolioData();
+  const data = await getPortfolioDataAsync();
   return <StudioDashboard initialData={data} />;
 }

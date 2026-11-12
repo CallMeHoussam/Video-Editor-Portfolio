@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   PortfolioData,
@@ -8,10 +8,11 @@ import {
   Folder,
   SiteSettings,
   Service,
-  WorkExperience,
-  VideoProvider
+  WorkExperience
 } from '@/types/portfolio';
 import { parseVideoUrl, normalizeVideoProvider } from '@/lib/video-utils';
+import { uploadVideoToR2, captureVideoFrame } from '@/lib/r2-upload';
+import { uploadVideoToBunnyTus } from '@/lib/bunny-tus-upload';
 import { VideoThumbnail } from './VideoThumbnail';
 import {
   Plus,
@@ -31,19 +32,20 @@ import {
   ArrowDown,
   AlertCircle,
   Sparkles,
-  Info,
-  Layers,
   Save,
   X,
   User,
   Briefcase,
   Wrench,
   Phone,
-  Settings,
-  Globe,
   Sliders,
   CheckCircle2,
-  FileText
+  FileText,
+  Upload,
+  ShieldCheck,
+  Sun,
+  HardDrive,
+  Moon
 } from 'lucide-react';
 
 interface StudioDashboardProps {
@@ -63,7 +65,6 @@ type TabType =
 export function StudioDashboard({ initialData }: StudioDashboardProps) {
   // Data state
   const [data, setData] = useState<PortfolioData | null>(initialData || null);
-  const [loading, setLoading] = useState(!initialData);
   const [activeTab, setActiveTab] = useState<TabType>('videos');
 
   // Filter & Search
@@ -97,8 +98,45 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     valid: boolean;
     provider: string;
     notice?: string;
+    warning?: string;
     error?: string;
     thumbnailUrl?: string;
+  } | null>(null);
+
+  // Cloudflare R2 & Bunny Video Hosting State
+  const [r2Status, setR2Status] = useState<{
+    configured: boolean;
+    bucketName?: string | null;
+    publicDomain?: string | null;
+    storageUsage?: {
+      totalBytes: number;
+      totalMB: number;
+      totalGB: number;
+      objectCount: number;
+      limitGB: number;
+      usedPercentage: number;
+      withinFreeTier: boolean;
+    } | null;
+  } | null>(null);
+
+  const [bunnyStatus, setBunnyStatus] = useState<{
+    uploadConfigured: boolean;
+    tokenSigningConfigured: boolean;
+    libraryId?: string | null;
+  } | null>(null);
+  const [videoSourceMode, setVideoSourceMode] = useState<'r2-upload' | 'bunny-upload' | 'local-dev' | 'url'>('r2-upload');
+  const [formR2Key, setFormR2Key] = useState<string>('');
+  const [formR2ThumbnailKey, setFormR2ThumbnailKey] = useState<string>('');
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadStage, setUploadStage] = useState('');
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [quickFolderOpen, setQuickFolderOpen] = useState(false);
+  const [quickFolderName, setQuickFolderName] = useState('');
+  const [defaultTheme, setDefaultTheme] = useState<'dark' | 'light'>('dark');
+  const [persistenceInfo, setPersistenceInfo] = useState<{
+    provider: 'neon' | 'supabase' | 'none';
+    isPersistent: boolean;
+    message: string;
   } | null>(null);
 
   // Folder Modal State
@@ -177,23 +215,22 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
   const [visibilityExperience, setVisibilityExperience] = useState(true);
   const [visibilityContact, setVisibilityContact] = useState(true);
 
-  // Load portfolio data if not passed in props
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const showFeedback = (type: 'success' | 'error', message: string) => {
+    setFeedback({ type, message });
+    setTimeout(() => {
+      setFeedback(prev => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
 
-  // Sync form states whenever data is updated or loaded
-  useEffect(() => {
-    if (!data) return;
-
-    const s = data.settings;
+  const applyLoadedPortfolio = useCallback((loaded: PortfolioData) => {
+    const s = loaded.settings;
     if (s) {
-      setHeroHeadlineEn(s.heroHeadline?.en || 'I TURN IDEAS INTO VISUAL EXPERIENCES.');
-      setHeroHeadlineFr(s.heroHeadline?.fr || 'JE TRANSFORME LES IDÉES EN EXPÉRIENCES VISUELLES.');
+      setHeroHeadlineEn(s.heroHeadline?.en || 'Cut for Attention. Edited with Intention.');
+      setHeroHeadlineFr(s.heroHeadline?.fr || "Monter pour retenir l'attention.");
       setHeroSubheadlineEn(s.heroSubheadline?.en || s.editorTitle?.en || '');
       setHeroSubheadlineFr(s.heroSubheadline?.fr || s.editorTitle?.fr || '');
-      setAvailableBadgeEn(s.availableBadge?.en || 'Available for Q4/Q1 Projects');
-      setAvailableBadgeFr(s.availableBadge?.fr || 'Disponible pour projets Q4/Q1');
+      setAvailableBadgeEn(s.availableBadge?.en || 'Available for select projects');
+      setAvailableBadgeFr(s.availableBadge?.fr || 'Disponible pour nouveaux projets');
       setHeroLocation(s.location || 'Casablanca, Morocco');
 
       setShowreelEnabled(s.showreel?.enabled ?? Boolean(s.showreel?.videoUrl?.trim()));
@@ -228,44 +265,91 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
       setVisibilityAbout(vis.about !== false);
       setVisibilityExperience(vis.experience !== false);
       setVisibilityContact(vis.contact !== false);
+      setDefaultTheme(s.defaultTheme === 'light' ? 'light' : 'dark');
     }
 
-    if (data.services) {
-      setServicesList(data.services);
+    if (loaded.services) {
+      setServicesList(loaded.services);
     }
-    if (data.experiences) {
-      setExperiencesList(data.experiences);
+    if (loaded.experiences) {
+      setExperiencesList(loaded.experiences);
     }
-  }, [data]);
+  }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await fetch('/api/cms/data', { cache: 'no-store' });
       if (res.ok) {
         const fetched = await res.json();
+        if (fetched._persistence) {
+          setPersistenceInfo(fetched._persistence);
+        }
         setData(fetched);
+        applyLoadedPortfolio(fetched);
       } else if (res.status === 401) {
         window.location.reload();
       }
     } catch {
       showFeedback('error', 'Failed to connect to portfolio database.');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [applyLoadedPortfolio]);
 
-  const showFeedback = (type: 'success' | 'error', message: string) => {
-    setFeedback({ type, message });
-    setTimeout(() => {
-      setFeedback(prev => (prev?.message === message ? null : prev));
-    }, 4000);
-  };
+  // Load initial portfolio data & check server Bunny configuration
+  useEffect(() => {
+    let active = true;
+
+    fetch('/api/cms/data', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((fetched: (PortfolioData & { _persistence?: { provider: 'neon' | 'supabase' | 'none'; isPersistent: boolean; message: string } }) | null) => {
+        if (active && fetched) {
+          if (fetched._persistence) {
+            setPersistenceInfo(fetched._persistence);
+          }
+          setData(fetched);
+          applyLoadedPortfolio(fetched);
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/video/r2/upload?checkConfig=true', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => {
+        if (active && cfg && cfg.success) {
+          setR2Status({
+            configured: Boolean(cfg.configured),
+            bucketName: cfg.bucketName || null,
+            publicDomain: cfg.publicDomain || null,
+            storageUsage: cfg.storageUsage || null,
+          });
+          if (cfg.configured) {
+            setVideoSourceMode('r2-upload');
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetch('/api/video/bunny/upload?checkConfig=true', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => {
+        if (active && cfg && cfg.success) {
+          setBunnyStatus({
+            uploadConfigured: Boolean(cfg.uploadConfigured),
+            tokenSigningConfigured: Boolean(cfg.tokenSigningConfigured),
+            libraryId: cfg.libraryId || null,
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [applyLoadedPortfolio]);
 
   const handleLogout = async () => {
     try {
       await fetch('/api/cms/auth', { method: 'DELETE' });
-      window.location.href = '/studio';
+      window.location.reload();
     } catch {
       window.location.reload();
     }
@@ -300,7 +384,9 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
   const handleSaveHeroAndShowreel = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const parsed = showreelVideoUrl.trim() ? parseVideoUrl(showreelVideoUrl.trim()) : null;
+    const parsed = showreelVideoUrl.trim()
+      ? parseVideoUrl(showreelVideoUrl.trim(), bunnyStatus?.libraryId || undefined)
+      : null;
 
     const payload: Partial<SiteSettings> = {
       heroHeadline: { en: heroHeadlineEn.trim(), fr: heroHeadlineFr.trim() },
@@ -310,9 +396,15 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
       showreel: {
         enabled: showreelEnabled,
         provider: parsed?.valid ? normalizeVideoProvider(parsed.provider) : 'placeholder',
-        videoUrl: showreelVideoUrl.trim(),
+        videoUrl: parsed?.embedUrl || parsed?.directUrl || showreelVideoUrl.trim(),
         poster: showreelPoster.trim(),
-        title: { en: showreelTitleEn.trim(), fr: showreelTitleFr.trim() }
+        title: { en: showreelTitleEn.trim(), fr: showreelTitleFr.trim() },
+        ...(parsed?.provider === 'bunny'
+          ? {
+              bunnyLibraryId: parsed.libraryId || bunnyStatus?.libraryId || undefined,
+              bunnyVideoId: parsed.bunnyVideoId,
+            }
+          : {}),
       }
     };
 
@@ -351,11 +443,12 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     await handleSaveSettings(payload, 'Contact & WhatsApp configuration saved!');
   };
 
-  // Save Section Visibility
+  // Save Section Visibility & Theme
   const handleSaveVisibility = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const payload: Partial<SiteSettings> = {
+      defaultTheme,
       sectionsVisibility: {
         hero: visibilityHero,
         showreel: visibilityShowreel,
@@ -376,7 +469,7 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
       }
     };
 
-    await handleSaveSettings(payload, 'Section visibility updated successfully!');
+    await handleSaveSettings(payload, 'Visibility & default theme settings updated!');
   };
 
   // -------------------------------------------------------------
@@ -407,8 +500,91 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
   };
 
   // -------------------------------------------------------------
-  // VIDEO MANAGEMENT ACTIONS (Simplified 7-field form)
+  // VIDEO MANAGEMENT ACTIONS
   // -------------------------------------------------------------
+  const handleR2FileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('video/') && !/\.(mp4|mov|webm|m4v)$/i.test(file.name)) {
+      showFeedback('error', 'Please select a valid MP4, MOV, or WebM video file.');
+      return;
+    }
+
+    const cleanDefaultTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+    const targetTitle = formTitle.trim() || cleanDefaultTitle;
+    if (!formTitle.trim()) {
+      setFormTitle(targetTitle);
+    }
+
+    try {
+      setUploadProgress(0);
+      setUploadStage('Extracting video frame...');
+
+      // 1. Try automatic thumbnail frame extraction from local video before upload
+      let extractedThumbBase64: string | null = null;
+      try {
+        const frame = await captureVideoFrame(file, 1.5);
+        if (frame) {
+          extractedThumbBase64 = frame.base64Data;
+          if (frame.aspectRatio) {
+            setFormAspectRatio(frame.aspectRatio);
+          }
+        }
+      } catch {
+        // frame extraction is progressive enhancement
+      }
+
+      // 2. Direct upload to Cloudflare R2
+      const uploaded = await uploadVideoToR2({
+        file,
+        onProgress: (pct) => setUploadProgress(pct),
+        onStage: (stage) => setUploadStage(stage),
+      });
+
+      setFormVideoUrl(uploaded.referenceUrl);
+      setFormR2Key(uploaded.key);
+
+      // 3. If thumbnail extracted and none uploaded, save thumbnail to R2
+      if (extractedThumbBase64 && !formThumbnail) {
+        setUploadStage('Saving video thumbnail to R2...');
+        try {
+          const thumbUploadRes = await fetch('/api/video/r2/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'upload-thumbnail',
+              base64Data: extractedThumbBase64,
+              fileName: `${uploaded.key.replace(/^videos\//, '')}-thumb.jpg`,
+            }),
+          });
+          const thumbData = await thumbUploadRes.json();
+          if (thumbUploadRes.ok && thumbData.success && thumbData.thumbnailUrl) {
+            setFormThumbnail(thumbData.thumbnailUrl);
+            setFormR2ThumbnailKey(thumbData.key);
+          }
+        } catch {
+          // fallback poster will be used if thumbnail upload fails
+        }
+      }
+
+      setUrlInfo({
+        valid: true,
+        provider: 'r2',
+        notice: `Video uploaded directly to Cloudflare R2 (${(file.size / (1024 * 1024)).toFixed(1)} MB). Stored privately with signed playback.`,
+      });
+
+      showFeedback('success', 'Video uploaded to Cloudflare R2 and ready to publish!');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Cloudflare R2 upload failed.';
+      showFeedback('error', msg);
+    } finally {
+      setUploadProgress(null);
+      setUploadStage('');
+      e.target.value = '';
+    }
+  };
+
   const handleVideoUrlChange = (url: string) => {
     setFormVideoUrl(url);
     if (!url.trim()) {
@@ -416,11 +592,12 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
       return;
     }
 
-    const parsed = parseVideoUrl(url);
+    const parsed = parseVideoUrl(url, bunnyStatus?.libraryId || undefined);
     setUrlInfo({
       valid: parsed.valid,
       provider: parsed.provider,
       notice: parsed.notice,
+      warning: parsed.warning,
       error: parsed.error,
       thumbnailUrl: parsed.thumbnailUrl
     });
@@ -430,9 +607,113 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     }
   };
 
+  const handleBunnyFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const cleanDefaultTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]+/g, ' ');
+    const targetTitle = formTitle.trim() || cleanDefaultTitle;
+    if (!formTitle.trim()) {
+      setFormTitle(targetTitle);
+    }
+
+    try {
+      setUploadProgress(0);
+      setUploadStage('Starting upload...');
+      const uploaded = await uploadVideoToBunnyTus({
+        file,
+        title: targetTitle,
+        onProgress: (pct) => setUploadProgress(pct),
+        onStage: (stage) => setUploadStage(stage),
+      });
+
+      setFormVideoUrl(uploaded.embedReference);
+      if (uploaded.aspectRatio) {
+        setFormAspectRatio(uploaded.aspectRatio);
+      }
+      if (uploaded.thumbnailUrl && !formThumbnail) {
+        setFormThumbnail(uploaded.thumbnailUrl);
+      }
+
+      const parsed = parseVideoUrl(uploaded.embedReference, uploaded.libraryId);
+      setUrlInfo({
+        valid: parsed.valid,
+        provider: parsed.provider,
+        notice: `Uploaded and verified on Bunny Stream (${uploaded.statusLabel || 'Ready'}).`,
+        thumbnailUrl: uploaded.thumbnailUrl || parsed.thumbnailUrl,
+      });
+
+      showFeedback('success', 'Video uploaded to Bunny Stream and ready to save.');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Bunny Stream upload failed.';
+      showFeedback('error', msg);
+    } finally {
+      setUploadProgress(null);
+      setUploadStage('');
+      e.target.value = '';
+    }
+  };
+
+  const handleThumbnailFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setThumbnailUploading(true);
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const res = await fetch('/api/cms/upload-thumbnail', {
+        method: 'POST',
+        body: fd,
+      });
+      const result = await res.json();
+      if (res.ok && result.success && result.url) {
+        setFormThumbnail(result.url);
+        showFeedback('success', 'Thumbnail image uploaded.');
+      } else {
+        showFeedback('error', result.message || 'Thumbnail upload failed.');
+      }
+    } catch {
+      showFeedback('error', 'Failed to upload thumbnail image.');
+    } finally {
+      setThumbnailUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleQuickCreateFolder = async () => {
+    if (!quickFolderName.trim()) {
+      showFeedback('error', 'Enter a client folder name.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/cms/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: { en: quickFolderName.trim(), fr: quickFolderName.trim() },
+        }),
+      });
+      const result = await res.json();
+      if (res.ok && result.success && result.folder?.id) {
+        setFormFolderId(result.folder.id);
+        setQuickFolderName('');
+        setQuickFolderOpen(false);
+        showFeedback('success', `Folder "${quickFolderName.trim()}" created.`);
+        fetchData();
+      } else {
+        showFeedback('error', result.message || 'Failed to create folder.');
+      }
+    } catch {
+      showFeedback('error', 'Error creating folder.');
+    }
+  };
+
   const handleAutoFetchThumbnail = async () => {
     if (!formVideoUrl.trim()) {
-      showFeedback('error', 'Please enter a video URL first.');
+      showFeedback('error', 'Please enter or upload a video first.');
       return;
     }
 
@@ -442,8 +723,8 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
       if (result.success && result.thumbnailUrl) {
         setFormThumbnail(result.thumbnailUrl);
         showFeedback('success', 'Thumbnail retrieved successfully!');
-      } else if (result.message) {
-        showFeedback('info' as any, result.message);
+      } else {
+        showFeedback('error', result.message || 'No automatic thumbnail available from provider.');
       }
     } catch {
       showFeedback('error', 'Unable to fetch thumbnail from provider.');
@@ -455,6 +736,8 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     setFormTitle('');
     setFormFolderId(selectedFolderFilter !== 'all' ? selectedFolderFilter : (data?.folders?.[0]?.id || 'general'));
     setFormVideoUrl('');
+    setFormR2Key('');
+    setFormR2ThumbnailKey('');
     setFormThumbnail('');
     setFormDescription('');
     setFormFeatured(false);
@@ -462,6 +745,11 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     setFormAspectRatio('16:9');
     setFormYear(new Date().getFullYear().toString());
     setShowAdvanced(false);
+    setQuickFolderOpen(false);
+    setQuickFolderName('');
+    setUploadProgress(null);
+    setUploadStage('');
+    setVideoSourceMode(r2Status?.configured ? 'r2-upload' : 'url');
     setUrlInfo(null);
     setIsProjectModalOpen(true);
   };
@@ -471,6 +759,8 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     setFormTitle(project.title.en || project.title.fr || '');
     setFormFolderId(project.folderId || 'general');
     setFormVideoUrl(project.videoUrl || '');
+    setFormR2Key(project.r2Key || '');
+    setFormR2ThumbnailKey(project.r2ThumbnailKey || '');
     setFormThumbnail(project.thumbnail || '');
     setFormDescription(project.shortDescription?.en || project.shortDescription?.fr || '');
     setFormFeatured(Boolean(project.featured));
@@ -478,13 +768,19 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
     setFormAspectRatio(project.aspectRatio || '16:9');
     setFormYear(project.year || new Date().getFullYear().toString());
     setShowAdvanced(false);
+    setQuickFolderOpen(false);
+    setQuickFolderName('');
+    setUploadProgress(null);
+    setUploadStage('');
+    setVideoSourceMode(project.videoProvider === 'r2' ? 'r2-upload' : 'url');
 
     if (project.videoUrl) {
-      const parsed = parseVideoUrl(project.videoUrl);
+      const parsed = parseVideoUrl(project.videoUrl, project.bunnyLibraryId || bunnyStatus?.libraryId || undefined);
       setUrlInfo({
         valid: parsed.valid,
         provider: parsed.provider,
         notice: parsed.notice,
+        warning: parsed.warning,
         error: parsed.error,
         thumbnailUrl: parsed.thumbnailUrl
       });
@@ -498,17 +794,22 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
   const handleSaveProject = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (uploadProgress !== null) {
+      showFeedback('error', 'Wait for the video upload to finish before saving.');
+      return;
+    }
+
     if (!formTitle.trim()) {
       showFeedback('error', 'Video title is required.');
       return;
     }
 
     if (!formVideoUrl.trim()) {
-      showFeedback('error', 'Video URL is required.');
+      showFeedback('error', 'Upload an MP4 video or paste a supported video URL.');
       return;
     }
 
-    const parsed = parseVideoUrl(formVideoUrl);
+    const parsed = parseVideoUrl(formVideoUrl, bunnyStatus?.libraryId || undefined);
     if (!parsed.valid) {
       showFeedback('error', parsed.error || 'Please provide a valid video link.');
       return;
@@ -527,8 +828,16 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
           fr: formDescription.trim()
         },
         folderId: formFolderId,
-        videoUrl: formVideoUrl.trim(),
+        videoUrl: parsed.directUrl || parsed.embedUrl || formVideoUrl.trim(),
         videoProvider: normalizeVideoProvider(parsed.provider),
+        r2Key: parsed.provider === 'r2' ? (formR2Key || parsed.r2Key) : undefined,
+        r2ThumbnailKey: formR2ThumbnailKey || undefined,
+        ...(parsed.provider === 'bunny'
+          ? {
+              bunnyLibraryId: parsed.libraryId || bunnyStatus?.libraryId || undefined,
+              bunnyVideoId: parsed.bunnyVideoId,
+            }
+          : {}),
         thumbnail: formThumbnail.trim(),
         featured: formFeatured,
         published: formPublished,
@@ -775,21 +1084,45 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {/* 1. TOP HEADER */}
-      <header className="sticky top-0 z-40 bg-[var(--bg-surface-elevated)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-40 glass-nav px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white font-black text-sm shadow-md shadow-purple-900/30">
+          <div className="w-8 h-8 rounded-md bg-[var(--cta-bg)] text-[var(--cta-text)] flex items-center justify-center font-display font-semibold text-sm">
             E
           </div>
           <div>
-            <h1 className="font-display font-bold text-base sm:text-lg tracking-tight leading-none text-[var(--text-primary)]">
+            <h1 className="font-display font-semibold text-base sm:text-lg tracking-tight leading-none text-[var(--text-primary)]">
               Evoless Studio
             </h1>
-            <span className="text-[10px] font-mono text-purple-400">Website & Content CMS</span>
+            <span className="text-[11px] text-[var(--text-muted)]">Portfolio & Bunny Video CMS</span>
           </div>
         </div>
 
         {/* Global Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {persistenceInfo && (
+            <div
+              className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                persistenceInfo.isPersistent
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+              }`}
+              title={persistenceInfo.message}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  persistenceInfo.isPersistent ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                }`}
+              />
+              <span>
+                {persistenceInfo.isPersistent
+                  ? persistenceInfo.provider === 'neon'
+                    ? 'Neon DB Connected'
+                    : 'Supabase DB Connected'
+                  : 'Local JSON Mode (Dev)'}
+              </span>
+            </div>
+          )}
+
           <Link
             href="/"
             target="_blank"
@@ -936,6 +1269,39 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
         {/* ======================================================== */}
         {activeTab === 'videos' && (
           <div>
+            {/* Cloudflare R2 Free-Tier Storage Status Bar */}
+            <div className="mb-5 px-4 py-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-surface)] flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-start md:items-center gap-2.5">
+                <HardDrive className={`w-4 h-4 shrink-0 mt-0.5 md:mt-0 ${r2Status?.configured ? 'text-emerald-400' : 'text-amber-400'}`} />
+                <div>
+                  <span className="font-semibold text-[var(--text-primary)]">Cloudflare R2 Free Storage:</span>{' '}
+                  <span className="text-[var(--text-secondary)]">
+                    {r2Status?.configured ? (
+                      <>
+                        Bucket <code className="font-mono text-[var(--text-primary)]">{r2Status.bucketName}</code> active · {r2Status.storageUsage ? `${r2Status.storageUsage.totalMB} MB used of 10 GB free allowance (${r2Status.storageUsage.usedPercentage}%) · ${r2Status.storageUsage.objectCount} files` : 'Ready for direct upload & signed streaming.'}
+                      </>
+                    ) : (
+                      'Configure R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME in .env.local for 100% free video hosting.'
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {r2Status?.storageUsage && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="w-24 h-2 rounded-full bg-[var(--bg-surface-elevated)] overflow-hidden">
+                    <div
+                      className={`h-full ${r2Status.storageUsage.withinFreeTier ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                      style={{ width: `${Math.min(100, Math.max(2, r2Status.storageUsage.usedPercentage))}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-[11px] text-[var(--text-muted)]">
+                    {r2Status.storageUsage.usedPercentage}% of 10 GB
+                  </span>
+                </div>
+              )}
+            </div>
+
             {/* Action Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6">
               <div className="flex items-center gap-3">
@@ -2112,7 +2478,53 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
             <div className="p-6 sm:p-8 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm space-y-5">
               <div>
                 <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-purple-400" />
+                  {defaultTheme === 'dark' ? <Moon className="w-4 h-4 text-[var(--accent)]" /> : <Sun className="w-4 h-4 text-[var(--accent)]" />}
+                  <span>Default Appearance Theme</span>
+                </h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  Sets the initial dark or light palette for new visitors (visitors can still toggle anytime in the navigation bar).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDefaultTheme('dark')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    defaultTheme === 'dark'
+                      ? 'border-[var(--accent)] bg-[var(--bg-surface-elevated)] text-[var(--text-primary)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <div>
+                    <span className="block text-sm font-semibold">Studio Dark (Obsidian)</span>
+                    <span className="text-xs text-[var(--text-muted)]">Deep matte charcoal canvas for theater viewing</span>
+                  </div>
+                  <Moon className="w-4 h-4 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDefaultTheme('light')}
+                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    defaultTheme === 'light'
+                      ? 'border-[var(--accent)] bg-[var(--bg-surface-elevated)] text-[var(--text-primary)]'
+                      : 'border-[var(--border-subtle)] bg-[var(--bg-primary)] text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <div>
+                    <span className="block text-sm font-semibold">Archival Light (Stone Paper)</span>
+                    <span className="text-xs text-[var(--text-muted)]">Warm white editorial canvas with high ink contrast</span>
+                  </div>
+                  <Sun className="w-4 h-4 shrink-0" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 sm:p-8 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] shadow-sm space-y-5">
+              <div>
+                <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] flex items-center gap-2">
+                  <Sliders className="w-5 h-5 text-[var(--accent)]" />
                   <span>Public Section Visibility</span>
                 </h3>
                 <p className="text-xs text-[var(--text-secondary)] mt-1">
@@ -2190,30 +2602,26 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
             </div>
 
             <form onSubmit={handleSaveProject} className="p-6 space-y-5">
-              {/* Field 1: Video Title */}
+              {/* Field 1: Client Folder + Quick Create */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
-                  1. Video Title <span className="text-purple-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. MAMA RAHIK — Product Launch Campaign"
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-sm text-[var(--text-primary)]"
-                />
-              </div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    1. Client or Folder <span className="text-red-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setQuickFolderOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{quickFolderOpen ? 'Close quick folder' : 'New client folder'}</span>
+                  </button>
+                </div>
 
-              {/* Field 2: Folder / Client */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
-                  2. Client or Folder <span className="text-purple-400">*</span>
-                </label>
                 <select
                   value={formFolderId}
                   onChange={(e) => setFormFolderId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-sm text-[var(--text-primary)]"
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)]"
                 >
                   {folders.map(f => (
                     <option key={f.id} value={f.id}>
@@ -2222,64 +2630,302 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
                   ))}
                   <option value="general">General Portfolio (No client folder)</option>
                 </select>
+
+                {quickFolderOpen && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={quickFolderName}
+                      onChange={(e) => setQuickFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleQuickCreateFolder();
+                        }
+                      }}
+                      placeholder="Client folder name (e.g. Nike EMEA)"
+                      className="flex-1 px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-xs text-[var(--text-primary)]"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleQuickCreateFolder}
+                      className="px-3 py-1.5 rounded-lg bg-[var(--cta-bg)] text-[var(--cta-fg)] hover:opacity-90 text-xs font-semibold cursor-pointer shrink-0"
+                    >
+                      Create
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Field 3: Video URL */}
+              {/* Field 2: Video Source (Cloudflare R2 Direct Upload, Local Dev, or Reference URL) */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
-                  3. Video URL or Source <span className="text-purple-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formVideoUrl}
-                  onChange={(e) => handleVideoUrlChange(e.target.value)}
-                  placeholder="Paste YouTube, Vimeo, Google Drive share link, or direct MP4 URL..."
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-sm text-[var(--text-primary)]"
-                />
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                    2. Video Source <span className="text-red-400">*</span>
+                  </label>
+                  <div className="inline-flex rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setVideoSourceMode('r2-upload')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                        videoSourceMode === 'r2-upload'
+                          ? 'bg-[var(--cta-bg)] text-[var(--cta-fg)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <HardDrive className="w-3 h-3" />
+                      <span>Upload to R2 (Free)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVideoSourceMode('local-dev')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                        videoSourceMode === 'local-dev'
+                          ? 'bg-[var(--cta-bg)] text-[var(--cta-fg)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Local File
+                    </button>
+                    {bunnyStatus?.uploadConfigured && (
+                      <button
+                        type="button"
+                        onClick={() => setVideoSourceMode('bunny-upload')}
+                        className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                          videoSourceMode === 'bunny-upload'
+                            ? 'bg-[var(--cta-bg)] text-[var(--cta-fg)]'
+                            : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        }`}
+                      >
+                        Bunny
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setVideoSourceMode('url')}
+                      className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer ${
+                        videoSourceMode === 'url'
+                          ? 'bg-[var(--cta-bg)] text-[var(--cta-fg)]'
+                          : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      Paste Video Reference
+                    </button>
+                  </div>
+                </div>
 
-                {urlInfo && (
-                  <div className="mt-2 text-xs">
-                    {urlInfo.valid ? (
-                      <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-300 flex items-start gap-2">
-                        <Info className="w-4 h-4 shrink-0 text-purple-400 mt-0.5" />
+                {videoSourceMode === 'r2-upload' ? (
+                  <div className="space-y-2.5">
+                    {!r2Status?.configured && (
+                      <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[var(--text-primary)] text-xs flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
                         <div>
-                          <span className="font-semibold uppercase tracking-wider text-[11px] mr-1.5">
-                            [{urlInfo.provider} detected]
-                          </span>
-                          <span>{urlInfo.notice}</span>
+                          Cloudflare R2 storage credentials (<code className="font-mono">R2_ACCOUNT_ID</code>,{' '}
+                          <code className="font-mono">R2_ACCESS_KEY_ID</code>,{' '}
+                          <code className="font-mono">R2_SECRET_ACCESS_KEY</code>,{' '}
+                          <code className="font-mono">R2_BUCKET_NAME</code>) are not configured in <code className="font-mono">.env.local</code>.
+                          You can switch to{' '}
+                          <button
+                            type="button"
+                            onClick={() => setVideoSourceMode('local-dev')}
+                            className="underline font-semibold cursor-pointer"
+                          >
+                            Local File
+                          </button>{' '}
+                          or{' '}
+                          <button
+                            type="button"
+                            onClick={() => setVideoSourceMode('url')}
+                            className="underline font-semibold cursor-pointer"
+                          >
+                            Paste Video Reference
+                          </button>{' '}
+                          to link an existing video.
                         </div>
                       </div>
-                    ) : (
-                      <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
-                        <span>{urlInfo.error}</span>
+                    )}
+
+                    <label
+                      className={`flex flex-col items-center justify-center gap-2 p-5 rounded-xl border border-dashed transition-colors text-center ${
+                        !r2Status?.configured || uploadProgress !== null
+                          ? 'border-[var(--border-subtle)] bg-[var(--bg-surface-elevated)]/60 opacity-65 cursor-not-allowed'
+                          : 'border-[var(--border-hover)] bg-[var(--bg-surface-elevated)] hover:border-[var(--accent)] cursor-pointer'
+                      }`}
+                    >
+                      <Upload className="w-5 h-5 text-[var(--accent)]" />
+                      <div className="text-xs">
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {uploadProgress !== null
+                            ? uploadStage || 'Uploading directly to Cloudflare R2...'
+                            : 'Select an MP4 video to upload directly to Cloudflare R2'}
+                        </span>
+                        <span className="block text-[11px] text-[var(--text-muted)] mt-0.5">
+                          Presigned direct upload with automatic frame thumbnail extraction & private signed playback
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="video/mp4,video/quicktime,video/webm"
+                        onChange={handleR2FileSelect}
+                        disabled={!r2Status?.configured || uploadProgress !== null}
+                        className="sr-only"
+                      />
+                    </label>
+
+                    {uploadProgress !== null && (
+                      <div className="space-y-1">
+                        <div className="h-1.5 w-full rounded-full bg-[var(--bg-surface-elevated)] overflow-hidden">
+                          <div
+                            className="h-full bg-[var(--accent)] transition-all duration-200"
+                            style={{ width: `${Math.min(100, Math.max(0, uploadProgress))}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-[var(--text-muted)]">
+                          <span>{uploadStage}</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {formVideoUrl && uploadProgress === null && (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-[var(--text-primary)] text-xs flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                          <span className="truncate font-mono text-[11px]">{formVideoUrl}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setVideoSourceMode('url')}
+                          className="text-[11px] underline shrink-0 cursor-pointer"
+                        >
+                          Edit link
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (videoSourceMode as string) === 'bunny-upload' ? (
+                  <div className="space-y-2.5">
+                    <label className="flex flex-col items-center justify-center gap-2 p-5 rounded-xl border border-dashed border-[var(--border-hover)] bg-[var(--bg-surface-elevated)] hover:border-[var(--accent)] cursor-pointer">
+                      <Upload className="w-5 h-5 text-[var(--accent)]" />
+                      <div className="text-xs">
+                        <span className="font-semibold text-[var(--text-primary)]">
+                          {uploadProgress !== null ? uploadStage : 'Select a video file to upload to Bunny Stream'}
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        onChange={handleBunnyFileSelect}
+                        disabled={uploadProgress !== null}
+                        className="sr-only"
+                      />
+                    </label>
+                  </div>
+                ) : videoSourceMode === 'local-dev' ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      For testing in development, enter the path of a local file in your <code className="font-mono">public/videos/</code> directory:
+                    </p>
+                    <input
+                      type="text"
+                      value={formVideoUrl}
+                      onChange={(e) => handleVideoUrlChange(e.target.value)}
+                      placeholder="/videos/test-sample.mp4"
+                      className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)] font-mono"
+                    />
+                    <p className="text-[11px] text-amber-400">
+                      Note: Local files are kept for development/testing only and are not uploaded to production R2 storage.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      type="text"
+                      value={formVideoUrl}
+                      onChange={(e) => handleVideoUrlChange(e.target.value)}
+                      placeholder="Paste YouTube (public/unlisted), Google Drive, GitHub video, R2 (r2://...), or MP4 URL..."
+                      className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)]"
+                    />
+
+                    {urlInfo && (
+                      <div className="mt-2 space-y-2 text-xs">
+                        {urlInfo.valid ? (
+                          <div className="p-2.5 rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] text-[var(--text-secondary)] flex items-start gap-2">
+                            <ShieldCheck className="w-4 h-4 shrink-0 text-[var(--accent)] mt-0.5" />
+                            <div>
+                              <span className="font-semibold uppercase tracking-wider text-[11px] text-[var(--text-primary)] mr-1.5">
+                                [{urlInfo.provider}]
+                              </span>
+                              <span>{urlInfo.notice}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/25 text-[var(--text-primary)] flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                            <span>{urlInfo.error}</span>
+                          </div>
+                        )}
+
+                        {urlInfo.valid && urlInfo.warning && (
+                          <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-[var(--text-primary)] flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 text-amber-500 mt-0.5" />
+                            <span>{urlInfo.warning}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Field 4: Thumbnail */}
+              {/* Field 3: Project Title */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
+                  3. Project Title <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. MAMA RAHIK — Product Launch Campaign"
+                  required
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)]"
+                />
+              </div>
+
+              {/* Field 4: Thumbnail (Upload, URL, or Auto-fetch) */}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                   <label className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
                     4. Thumbnail (Optional)
                   </label>
-                  <button
-                    type="button"
-                    onClick={handleAutoFetchThumbnail}
-                    className="text-xs text-purple-400 hover:text-purple-300 font-medium underline cursor-pointer"
-                  >
-                    Auto-fetch thumbnail
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-1 text-xs font-medium text-[var(--accent)] hover:underline cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{thumbnailUploading ? 'Uploading...' : 'Upload image'}</span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/svg+xml"
+                        onChange={handleThumbnailFileSelect}
+                        disabled={thumbnailUploading}
+                        className="sr-only"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoFetchThumbnail}
+                      className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium underline cursor-pointer"
+                    >
+                      Auto-fetch
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
                   value={formThumbnail}
                   onChange={(e) => setFormThumbnail(e.target.value)}
-                  placeholder="Image URL (leave blank for automatic fallback poster card)..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-sm text-[var(--text-primary)]"
+                  placeholder="Upload an image, auto-fetch from Bunny/YouTube, or paste a URL..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)]"
                 />
 
                 <div className="mt-2 flex items-center gap-3">
@@ -2293,27 +2939,27 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
                   </div>
                   <span className="text-[11px] text-[var(--text-muted)] leading-tight">
                     {formThumbnail
-                      ? 'Custom / auto-generated thumbnail preview.'
-                      : 'No thumbnail specified. An elegant fallback poster card will be rendered automatically.'}
+                      ? 'Custom or provider thumbnail preview.'
+                      : 'Leave empty to use an editorial typographic poster card.'}
                   </span>
                 </div>
               </div>
 
-              {/* Field 5: Short Description */}
+              {/* Short Description */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-1.5">
-                  5. Short Description (Optional)
+                  Short Context Note (Optional)
                 </label>
                 <textarea
                   rows={2}
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Brief context or key outcome (e.g. 100k+ organic views on launch)..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-sm text-[var(--text-primary)] resize-none"
+                  placeholder="Brief editorial note (e.g. Launch edit & motion graphics)..."
+                  className="w-full px-4 py-2.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-sm text-[var(--text-primary)] resize-none"
                 />
               </div>
 
-              {/* Field 6 & 7: Best One & Published Toggles */}
+              {/* Field 5: Best One & Published Toggles */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 <label className="flex items-center gap-3 p-3.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] cursor-pointer hover:border-amber-500/40 transition-colors">
                   <input
@@ -2357,7 +3003,7 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
                 <button
                   type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-purple-400 transition-colors font-semibold"
+                  className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors font-semibold cursor-pointer"
                 >
                   {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   <span>Advanced Options (Aspect Ratio, Year)</span>
@@ -2371,7 +3017,7 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
                       </label>
                       <select
                         value={formAspectRatio}
-                        onChange={(e) => setFormAspectRatio(e.target.value as any)}
+                        onChange={(e) => setFormAspectRatio(e.target.value as '16:9' | '9:16' | '1:1' | '4:5')}
                         className="w-full px-3 py-1.5 rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs text-[var(--text-primary)]"
                       >
                         <option value="16:9">16:9 (Horizontal)</option>
@@ -2408,15 +3054,15 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-purple-600/30 transition-all flex items-center gap-2 cursor-pointer"
+                  disabled={isSubmitting || uploadProgress !== null || thumbnailUploading}
+                  className="px-6 py-2 rounded-xl bg-[var(--cta-bg)] text-[var(--cta-fg)] hover:opacity-90 disabled:opacity-50 text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer"
                 >
                   {isSubmitting ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                   ) : (
                     <>
                       <Save className="w-3.5 h-3.5" />
-                      <span>{editingProject ? 'Save Changes' : 'Add Video'}</span>
+                      <span>{editingProject ? 'Save Changes' : 'Save & Publish'}</span>
                     </>
                   )}
                 </button>
@@ -2508,7 +3154,7 @@ export function StudioDashboard({ initialData }: StudioDashboardProps) {
             </h3>
 
             <p className="text-xs text-[var(--text-secondary)] mb-6 leading-relaxed">
-              Are you sure you want to delete <span className="font-bold text-[var(--text-primary)]">"{deleteConfirmation.title}"</span>? This action cannot be undone.
+              Are you sure you want to delete <span className="font-bold text-[var(--text-primary)]">&ldquo;{deleteConfirmation.title}&rdquo;</span>? This action cannot be undone.
             </p>
 
             <div className="flex items-center justify-center gap-3">

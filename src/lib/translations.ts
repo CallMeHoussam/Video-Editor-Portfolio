@@ -147,27 +147,27 @@ export const translations: Record<Locale, TranslationDictionary> = {
       menuClose: "Close Navigation Menu"
     },
     hero: {
-      headline: "I TURN IDEAS INTO VISUAL EXPERIENCES.",
-      subheadline: "Video Editing · Motion Graphics · Creative Advertising",
-      exploreWork: "Explore My Work",
-      talkCta: "Let's Work Together",
-      showreelTitle: "Evoless 2026/2027 Showreel",
-      showreelBadge: "Showreel Montage",
-      locationBadge: "Casablanca, Morocco · Available Worldwide",
-      availableBadge: "Available for New Projects",
+      headline: "Cut for rhythm, pace, and attention.",
+      subheadline: "Video editing and motion design — commercials, brand films, and short-form social cuts.",
+      exploreWork: "Selected Work",
+      talkCta: "Start a Project",
+      showreelTitle: "Evoless Showreel",
+      showreelBadge: "Showreel",
+      locationBadge: "Casablanca",
+      availableBadge: "Available for commissions",
       watchShowreel: "Watch Showreel"
     },
     portfolio: {
       sectionTitle: "Selected Work",
-      sectionSubtitle: "Editorial storytelling, high-retention social reels, and high-impact commercial campaigns.",
+      sectionSubtitle: "Organized by client folder. Lead selection first, remaining cuts below.",
       allCategories: "All Work",
-      viewProject: "View Case Study",
-      previewHover: "Preview edit",
-      featuredBadge: "Featured Cut",
-      emptyTitle: "No projects in this category yet",
-      emptySubtitle: "New case studies are frequently published via the Studio dashboard.",
-      openStudio: "Open Studio CMS",
-      viewAllArchive: "View Full Archive"
+      viewProject: "Open Film",
+      previewHover: "Preview",
+      featuredBadge: "Best One",
+      emptyTitle: "No videos in this folder yet",
+      emptySubtitle: "Publish projects from the Studio dashboard to feature them here.",
+      openStudio: "Open Studio",
+      viewAllArchive: "Full Archive"
     },
     caseStudy: {
       backToWork: "Back to Selected Work",
@@ -196,22 +196,22 @@ export const translations: Record<Locale, TranslationDictionary> = {
       projectCtaButton: "Inquire About This Service"
     },
     services: {
-      sectionTitle: "Services & Capabilities",
-      sectionSubtitle: "Tailored post-production solutions for content creators, agencies, and ambitious brands.",
-      deliverables: "Key Deliverables",
-      toolsUsed: "Primary Tools",
-      bookService: "Book This Service"
+      sectionTitle: "Editing Capabilities",
+      sectionSubtitle: "From raw dailies and pacing structure to sound design and motion delivery.",
+      deliverables: "Deliverables",
+      toolsUsed: "Tools",
+      bookService: "Inquire"
     },
     about: {
-      sectionTitle: "About & Career",
-      sectionSubtitle: "2 years of dedicated post-production craft, continuous learning, and client success.",
-      bioTitle: "Video Editor & Visual Storyteller",
-      experienceTitle: "Work Experience",
-      educationTitle: "Education & Training",
-      skillsTitle: "Skills & Technical Stack",
+      sectionTitle: "Profile",
+      sectionSubtitle: "Houssam Elmsafer — video editor & motion designer based in Casablanca.",
+      bioTitle: "Houssam Elmsafer",
+      experienceTitle: "Experience",
+      educationTitle: "Education",
+      skillsTitle: "Capabilities & Tools",
       languagesTitle: "Languages",
-      downloadCvEn: "Download CV (EN)",
-      downloadCvFr: "Download CV (FR)"
+      downloadCvEn: "CV (English)",
+      downloadCvFr: "CV (French)"
     },
     contact: {
       sectionTitle: "Let's Create Together",
@@ -250,12 +250,12 @@ export const translations: Record<Locale, TranslationDictionary> = {
       directEmailFallback: "Direct email fallback:"
     },
     footer: {
-      brandTagline: "Visual storytelling, rhythm, and motion design crafted with purpose.",
+      brandTagline: "Video editing & motion design by Houssam Elmsafer.",
       quickLinks: "Navigation",
       contactDirect: "Direct Contact",
-      socials: "Find Me Online",
+      socials: "Elsewhere",
       rights: "All rights reserved.",
-      backToTop: "Back to top"
+      backToTop: "Top"
     }
   },
 
@@ -264,10 +264,10 @@ export const translations: Record<Locale, TranslationDictionary> = {
       brand: "Evoless",
       work: "Projets",
       services: "Services",
-      about: "À Propos",
+      about: "Profil",
       experience: "Parcours",
       contact: "Contact",
-      downloadCv: "Télécharger mon CV (FR)",
+      downloadCv: "CV (FR)",
       cvBadge: "FR",
       studio: "Studio",
       themeToggle: "Changer de thème",
@@ -276,27 +276,27 @@ export const translations: Record<Locale, TranslationDictionary> = {
       menuClose: "Fermer le menu de navigation"
     },
     hero: {
-      headline: "JE TRANSFORME LES IDÉES EN EXPÉRIENCES VISUELLES.",
-      subheadline: "Montage Vidéo · Motion Design · Publicités Créatives",
-      exploreWork: "Explorer Mes Projets",
-      talkCta: "Travaillons Ensemble",
-      showreelTitle: "Bande Démo Evoless 2026/2027",
-      showreelBadge: "Showreel Montage",
-      locationBadge: "Casablanca, Maroc · Disponible à distance",
-      availableBadge: "Disponible pour Nouveaux Projets",
+      headline: "Montage conçu pour le rythme et l’attention.",
+      subheadline: "Montage vidéo et motion design — films de marque, publicités et formats courts.",
+      exploreWork: "Travaux Sélectionnés",
+      talkCta: "Démarrer un Projet",
+      showreelTitle: "Bande Démo Evoless",
+      showreelBadge: "Showreel",
+      locationBadge: "Casablanca",
+      availableBadge: "Disponible pour projets",
       watchShowreel: "Voir la Bande Démo"
     },
     portfolio: {
       sectionTitle: "Projets Sélectionnés",
-      sectionSubtitle: "Storytelling éditorial, formats courts à haute rétention et campagnes publicitaires percutantes.",
-      allCategories: "Tous les projets",
-      viewProject: "Voir l'étude de cas",
-      previewHover: "Aperçu vidéo",
-      featuredBadge: "Sélection Clé",
-      emptyTitle: "Aucun projet dans cette catégorie",
-      emptySubtitle: "De nouvelles études de cas sont publiées via le tableau de bord Studio.",
-      openStudio: "Accéder au Studio CMS",
-      viewAllArchive: "Voir toutes les archives"
+      sectionSubtitle: "Classés par dossier client. Sélection principale en tête, autres formats ci-dessous.",
+      allCategories: "Tout voir",
+      viewProject: "Voir le film",
+      previewHover: "Aperçu",
+      featuredBadge: "Best One",
+      emptyTitle: "Aucune vidéo dans ce dossier",
+      emptySubtitle: "Publiez des projets depuis le Studio pour les afficher ici.",
+      openStudio: "Ouvrir le Studio",
+      viewAllArchive: "Archives"
     },
     caseStudy: {
       backToWork: "Retour aux projets",
@@ -325,22 +325,22 @@ export const translations: Record<Locale, TranslationDictionary> = {
       projectCtaButton: "Démarrer ce type de projet"
     },
     services: {
-      sectionTitle: "Services & Prestations",
-      sectionSubtitle: "Solutions de post-production sur-mesure pour créateurs, agences et marques ambitieuses.",
-      deliverables: "Livrables Principaux",
-      toolsUsed: "Outils de Prédilection",
-      bookService: "Réserver cette prestation"
+      sectionTitle: "Savoir-Faire",
+      sectionSubtitle: "Des rushs bruts et du rythme narratif jusqu’au sound design et à l’habillage.",
+      deliverables: "Livrables",
+      toolsUsed: "Outils",
+      bookService: "Discuter"
     },
     about: {
-      sectionTitle: "À Propos & Parcours",
-      sectionSubtitle: "2 ans de pratique dédiée de la post-production, d'apprentissage continu et de satisfaction client.",
-      bioTitle: "Monteur Vidéo & Storyteller Visuel",
-      experienceTitle: "Expérience Professionnelle",
-      educationTitle: "Formation & Diplômes",
+      sectionTitle: "Profil",
+      sectionSubtitle: "Houssam Elmsafer — monteur vidéo et motion designer basé à Casablanca.",
+      bioTitle: "Houssam Elmsafer",
+      experienceTitle: "Expérience",
+      educationTitle: "Formation",
       skillsTitle: "Compétences & Outils",
-      languagesTitle: "Langues Maîtrisées",
-      downloadCvEn: "Télécharger mon CV (EN)",
-      downloadCvFr: "Télécharger mon CV (FR)"
+      languagesTitle: "Langues",
+      downloadCvEn: "CV (Anglais)",
+      downloadCvFr: "CV (Français)"
     },
     contact: {
       sectionTitle: "Créons Ensemble",
@@ -379,12 +379,12 @@ export const translations: Record<Locale, TranslationDictionary> = {
       directEmailFallback: "Adresse email directe :"
     },
     footer: {
-      brandTagline: "Storytelling visuel, sens du rythme et motion design au service de vos objectifs.",
+      brandTagline: "Montage vidéo et motion design par Houssam Elmsafer.",
       quickLinks: "Navigation",
-      contactDirect: "Contact Direct",
-      socials: "Retrouvez-moi en ligne",
+      contactDirect: "Contact",
+      socials: "Réseaux",
       rights: "Tous droits réservés.",
-      backToTop: "Haut de page"
+      backToTop: "Haut"
     }
   }
 };

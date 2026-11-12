@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="100%" height="100%">
+  <rect width="1280" height="720" fill="#0B0B0F"/>
+  <rect x="44" y="44" width="1192" height="632" fill="#111116" stroke="#24242D" stroke-width="1.5"/>
+  <line x1="44" y1="120" x2="1236" y2="120" stroke="#1C1C23" stroke-width="1"/>
+  <rect x="80" y="80" width="22" height="2" fill="#8B74FF"/>
+  <text x="116" y="86" fill="#9E9CA6" font-family="system-ui, -apple-system, sans-serif" font-size="13" letter-spacing="3" font-weight="500">ATTIJARIWAFA BANK</text>
+  <text x="1200" y="86" fill="#6E6D76" font-family="monospace" font-size="13" text-anchor="end">16:9</text>
+  <circle cx="640" cy="340" r="34" fill="#16161D" stroke="#353542" stroke-width="1.5"/>
+  <polygon points="633,327 654,340 633,353" fill="#F4F3F0"/>
+  <text x="640" y="460" fill="#F4F3F0" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600" text-anchor="middle" letter-spacing="2">CORPORATE SPOT</text>
+  <text x="640" y="494" fill="#7D7B87" font-family="system-ui, -apple-system, sans-serif" font-size="13" text-anchor="middle" letter-spacing="2">SENSEIPROD</text>
+</svg>
+

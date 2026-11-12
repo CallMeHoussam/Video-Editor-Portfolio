@@ -1,7 +1,7 @@
 export type Locale = 'en' | 'fr';
 export type ExtendedLocale = 'en' | 'fr' | 'ary';
 
-export type VideoProvider = 'bunny' | 'vimeo' | 'youtube' | 'googledrive' | 'direct' | 'placeholder';
+export type VideoProvider = 'r2' | 'bunny' | 'vimeo' | 'youtube' | 'googledrive' | 'direct' | 'placeholder';
 
 export interface LocalizedString {
   en: string;
@@ -48,6 +48,8 @@ export interface Project {
   previewVideo?: string;
   videoProvider: VideoProvider;
   videoUrl: string;
+  r2Key?: string;
+  r2ThumbnailKey?: string;
   bunnyLibraryId?: string;
   bunnyVideoId?: string;
   brief: LocalizedString;
@@ -166,6 +168,7 @@ export interface SiteSettings {
   heroHeadline?: LocalizedString;
   heroSubheadline?: LocalizedString;
   availableBadge?: LocalizedString;
+  defaultTheme?: 'dark' | 'light';
   sectionsVisibility?: {
     hero?: boolean;
     showreel?: boolean;

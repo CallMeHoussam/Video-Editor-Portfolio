@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Locale } from '@/types/portfolio';
 import {
-  getPortfolioData,
+  getPortfolioDataAsync,
   getPublishedProjects,
   getFolders,
   getCategories,
@@ -68,7 +68,7 @@ export default async function LocalizedHomePage({
   }
 
   const locale = lang as Locale;
-  const data = getPortfolioData();
+  const data = await getPortfolioDataAsync();
   const settings = getSiteSettings();
   const projects = getPublishedProjects();
   const folders = getFolders();
@@ -84,7 +84,7 @@ export default async function LocalizedHomePage({
       
       <main className="flex-1">
         {settings.sectionsVisibility?.hero !== false && (
-          <CinematicHero locale={locale} settings={settings} />
+          <CinematicHero locale={locale} settings={settings} featuredProjects={projects} />
         )}
         {settings.sectionsVisibility?.portfolio !== false && (
           <PortfolioSection

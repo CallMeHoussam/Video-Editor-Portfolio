@@ -1,68 +1,82 @@
 @import "tailwindcss";
 
-@theme {
-  --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+@theme inline {
+  --font-display: var(--font-syne), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: var(--font-jakarta), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 @layer base {
   :root {
-    --bg-primary: #07060A;
-    --bg-main: #07060A;
-    --bg-secondary: #0E0C14;
-    --bg-surface: #14111E;
-    --bg-surface-elevated: #1B1728;
-    --bg-surface-glass: rgba(20, 17, 30, 0.82);
-    
-    --border-subtle: rgba(168, 140, 255, 0.12);
-    --border-hover: rgba(168, 140, 255, 0.35);
-    --border-strong: rgba(168, 140, 255, 0.25);
-    
-    --text-primary: #F7F5FC;
-    --text-main: #F7F5FC;
-    --text-secondary: #A9A2B8;
-    --text-muted: #8E869E;
-    --text-dim: #655E75;
-    
-    --accent-purple: #8B5CF6;
-    --accent-purple-glow: rgba(139, 92, 246, 0.28);
-    --accent-lavender: #C4B5FD;
-    --accent-purple-active: #7C3AED;
-    --accent-badge-bg: rgba(139, 92, 246, 0.14);
-    
-    --nav-glass: rgba(7, 6, 10, 0.85);
-    --card-gradient: linear-gradient(180deg, rgba(27, 23, 40, 0.65) 0%, rgba(20, 17, 30, 0.85) 100%);
-    --card-hover-gradient: linear-gradient(180deg, rgba(37, 31, 56, 0.75) 0%, rgba(24, 20, 36, 0.95) 100%);
+    /* Studio Dark (Obsidian Film Matte) */
+    --bg-primary: #09090B;
+    --bg-main: #09090B;
+    --bg-secondary: #0F0F12;
+    --bg-surface: #131317;
+    --bg-surface-elevated: #1A1A20;
+    --bg-surface-glass: rgba(13, 13, 16, 0.86);
+
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.22);
+    --border-strong: rgba(255, 255, 255, 0.16);
+
+    --text-primary: #F3F2EF;
+    --text-main: #F3F2EF;
+    --text-secondary: #A1A0AA;
+    --text-muted: #767580;
+    --text-dim: #52515A;
+
+    /* Restrained studio violet accent (used sparingly) */
+    --accent: #8B74FF;
+    --accent-purple: #8B74FF;
+    --accent-purple-glow: rgba(139, 116, 255, 0.14);
+    --accent-lavender: #B8A9FF;
+    --accent-purple-active: #765CF0;
+    --accent-badge-bg: rgba(139, 116, 255, 0.10);
+
+    --cta-bg: #F3F2EF;
+    --cta-text: #09090B;
+    --cta-hover-bg: #E4E2DD;
+
+    --nav-glass: rgba(9, 9, 11, 0.84);
+    --card-gradient: #131317;
+    --card-hover-gradient: #18181D;
   }
 
   html.light,
   [data-theme="light"] {
-    --bg-primary: #FAF9FD;
-    --bg-main: #FAF9FD;
-    --bg-secondary: #F2EEF8;
+    /* Paper Light (Warm Archival Stone) */
+    --bg-primary: #F8F7F4;
+    --bg-main: #F8F7F4;
+    --bg-secondary: #F0EEE9;
     --bg-surface: #FFFFFF;
-    --bg-surface-elevated: #F6F3FA;
-    --bg-surface-glass: rgba(255, 255, 255, 0.92);
-    
-    --border-subtle: rgba(124, 58, 237, 0.12);
-    --border-hover: rgba(124, 58, 237, 0.35);
-    --border-strong: rgba(124, 58, 237, 0.22);
-    
-    --text-primary: #0F0A1A;
-    --text-main: #0F0A1A;
-    --text-secondary: #433D50;
-    --text-muted: #6B647A;
-    --text-dim: #948C9E;
-    
-    --accent-purple: #7C3AED;
-    --accent-purple-glow: rgba(124, 58, 237, 0.12);
-    --accent-lavender: #8B5CF6;
-    --accent-purple-active: #6D28D9;
-    --accent-badge-bg: rgba(124, 58, 237, 0.08);
-    
-    --nav-glass: rgba(250, 249, 253, 0.92);
-    --card-gradient: linear-gradient(180deg, #FFFFFF 0%, #F9F7FC 100%);
-    --card-hover-gradient: linear-gradient(180deg, #FFFFFF 0%, #F3EEF9 100%);
+    --bg-surface-elevated: #ECE9E2;
+    --bg-surface-glass: rgba(248, 247, 244, 0.90);
+
+    --border-subtle: rgba(18, 18, 22, 0.09);
+    --border-hover: rgba(18, 18, 22, 0.25);
+    --border-strong: rgba(18, 18, 22, 0.16);
+
+    --text-primary: #141417;
+    --text-main: #141417;
+    --text-secondary: #4E4D56;
+    --text-muted: #6E6D77;
+    --text-dim: #9A98A1;
+
+    /* Deeper editorial violet for clear light-mode contrast */
+    --accent: #5B21B6;
+    --accent-purple: #6D28D9;
+    --accent-purple-glow: rgba(109, 40, 217, 0.10);
+    --accent-lavender: #6D28D9;
+    --accent-purple-active: #4C1D95;
+    --accent-badge-bg: rgba(109, 40, 217, 0.07);
+
+    --cta-bg: #141417;
+    --cta-text: #F8F7F4;
+    --cta-hover-bg: #27272C;
+
+    --nav-glass: rgba(248, 247, 244, 0.88);
+    --card-gradient: #FFFFFF;
+    --card-hover-gradient: #FAF9F6;
   }
 
   html {
@@ -78,21 +92,18 @@
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: var(--font-sans), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-jakarta), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
     overflow-x: hidden;
     transition: background-color 0.25s ease, color 0.25s ease;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-display), 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  h1, h2, h3, .font-display {
+    font-family: var(--font-syne), var(--font-jakarta), -apple-system, BlinkMacSystemFont, sans-serif;
   }
 
   a {
     color: inherit;
-    text-decoration: none;
-  }
-
-  a:hover {
     text-decoration: none;
   }
 
@@ -102,7 +113,7 @@
   }
 }
 
-/* Reduced motion preference */
+/* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto !important;
@@ -117,71 +128,59 @@
   }
 }
 
-/* Editorial scrollbar */
+/* Restrained scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
-  border-radius: 4px;
+  background: var(--border-strong);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.6);
+  background: var(--text-muted);
 }
 
-/* Navigation frosted glass */
+/* Navigation glass strip */
 .glass-nav {
   background-color: var(--nav-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border-subtle);
 }
 
-/* Cinematic glow & effects */
-.cinematic-glow {
-  position: absolute;
-  pointer-events: none;
-  filter: blur(80px);
-  opacity: 0.45;
-  border-radius: 50%;
-  background: radial-gradient(circle, #8B5CF6 0%, rgba(196, 181, 253, 0.2) 60%, transparent 80%);
-}
-
-.purple-glow {
-  box-shadow: 0 0 50px -15px var(--accent-purple-glow);
-}
-
-@keyframes pulse-glow {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.7;
-    transform: scale(1.05);
-  }
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 4s ease-in-out infinite;
-}
-
+/* Quiet editorial surface card (zero neon glow) */
 .editorial-card {
-  background: var(--card-gradient);
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .editorial-card:hover {
   border-color: var(--border-hover);
-  background: var(--card-hover-gradient);
-  box-shadow: 0 10px 30px -10px var(--accent-purple-glow);
+  background-color: var(--bg-surface-elevated);
 }
 
-/* Hide scrollbar utility */
+/* Subtle section hairline */
+.section-rule {
+  border-top: 1px solid var(--border-subtle);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

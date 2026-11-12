@@ -1,89 +1,113 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Play, Film } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Play } from 'lucide-react';
 
 interface VideoThumbnailProps {
   thumbnailUrl?: string;
+  previewVideo?: string;
   title: string;
   folderName?: string;
   aspectRatio?: '16:9' | '9:16' | '1:1' | '4:5';
   className?: string;
   showPlayButton?: boolean;
+  isHovering?: boolean;
 }
 
 export function VideoThumbnail({
   thumbnailUrl,
+  previewVideo,
   title,
   folderName,
-  aspectRatio = '16:9',
   className = '',
-  showPlayButton = true
+  showPlayButton = true,
+  isHovering = false,
 }: VideoThumbnailProps) {
   const [imageError, setImageError] = useState(false);
+  const [previewReady, setPreviewReady] = useState(false);
+  const previewRef = useRef<HTMLVideoElement>(null);
 
   const hasImage = Boolean(thumbnailUrl && thumbnailUrl.trim() && !imageError);
+  const hasPlayablePreview = Boolean(
+    previewVideo &&
+      previewVideo.trim() &&
+      /\.(mp4|webm|mov|m4v)(\?.*)?$/i.test(previewVideo.trim())
+  );
 
-  if (hasImage) {
-    return (
-      <div className={`relative w-full h-full overflow-hidden bg-[#0e0c15] ${className}`}>
+  useEffect(() => {
+    const vid = previewRef.current;
+    if (!vid || !hasPlayablePreview) return;
+
+    if (isHovering) {
+      vid.currentTime = 0;
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [isHovering, hasPlayablePreview]);
+
+  return (
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+      className={`relative w-full h-full overflow-hidden bg-[#0E0E12] select-none ${className}`}
+    >
+      {hasImage ? (
         <img
           src={thumbnailUrl}
           alt={title}
+          draggable={false}
           onError={() => setImageError(true)}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className={`w-full h-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03] ${
+            isHovering && previewReady ? 'opacity-0' : 'opacity-100'
+          }`}
           loading="lazy"
         />
-        {/* Ambient Dark Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-
-        {showPlayButton && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="w-12 h-12 rounded-full bg-purple-600/90 text-white flex items-center justify-center shadow-lg shadow-purple-950/50 backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-              <Play className="w-5 h-5 ml-0.5 fill-white" />
-            </div>
+      ) : (
+        /* Restrained editorial film slate when no image thumbnail exists */
+        <div className="relative w-full h-full flex flex-col justify-between p-5 bg-[#101015] text-[#F3F2EF]">
+          <div className="flex items-center justify-between text-[10px] tracking-[0.18em] uppercase text-[#767580]">
+            <span>{folderName || 'Evoless'}</span>
           </div>
-        )}
-      </div>
-    );
-  }
 
-  // Fallback Poster Card (High-production aesthetic, dark glass, purple glow)
-  return (
-    <div
-      className={`relative w-full h-full overflow-hidden bg-gradient-to-br from-[#1b152b] via-[#0f0c18] to-[#07060d] border border-purple-500/20 flex flex-col justify-between p-5 select-none ${className}`}
-    >
-      {/* Background ambient radial glow */}
-      <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-600/20 rounded-full blur-2xl pointer-events-none" />
-      <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-indigo-600/15 rounded-full blur-2xl pointer-events-none" />
-
-      {/* Top Header Tag */}
-      <div className="relative z-10 flex items-center justify-between">
-        {folderName ? (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/25 text-[10px] sm:text-xs font-mono font-medium tracking-wide uppercase text-purple-300">
-            <Film className="w-3 h-3 text-purple-400" />
-            <span>{folderName}</span>
-          </span>
-        ) : <span />}
-      </div>
-
-      {/* Center Play Indicator */}
-      <div className="relative z-10 my-auto text-center flex flex-col items-center">
-        {showPlayButton && (
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-purple-600/30 border border-purple-500/50 flex items-center justify-center text-purple-200 shadow-xl shadow-purple-950/60 group-hover:scale-110 group-hover:bg-purple-600 group-hover:text-white transition-all duration-300 mb-2">
-            <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5 fill-current" />
+          <div className="my-auto text-center px-3">
+            <p className="font-display text-sm sm:text-base font-medium leading-snug line-clamp-3 text-[#F3F2EF]">
+              {title}
+            </p>
           </div>
-        )}
-        <h4 className="font-display font-semibold text-xs sm:text-sm text-zinc-100 max-w-[85%] line-clamp-2 leading-snug">
-          {title}
-        </h4>
-      </div>
 
-      {/* Bottom Cinematic Accent */}
-      <div className="relative z-10 flex items-center justify-between text-[10px] font-mono text-zinc-500 border-t border-white/5 pt-2">
-        <span className="text-purple-400/80 uppercase">EVOLESS PORTFOLIO</span>
-        <span>WATCH CUT</span>
-      </div>
+          <div className="h-px w-full bg-white/10" />
+        </div>
+      )}
+
+      {/* Subtle muted hover video preview when a direct preview stream is configured */}
+      {hasPlayablePreview && isHovering && (
+        <video
+          ref={previewRef}
+          src={previewVideo}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          controlsList="nodownload"
+          disablePictureInPicture
+          onCanPlay={() => setPreviewReady(true)}
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+            previewReady ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
+
+      {/* Subtle bottom vignette for crisp frame edge separation */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent pointer-events-none" />
+
+      {/* Minimal play indicator centered cleanly over frame */}
+      {showPlayButton && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="w-11 h-11 rounded-full bg-[#09090B]/70 border border-white/25 text-white flex items-center justify-center backdrop-blur-sm transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110">
+            <Play className="w-4 h-4 ml-0.5 fill-white" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

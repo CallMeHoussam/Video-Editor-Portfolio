@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Lock, ArrowRight, ShieldCheck, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, ArrowRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface StudioLoginProps {
   onSuccess?: () => void;
@@ -28,7 +28,7 @@ export function StudioLogin({ onSuccess }: StudioLoginProps) {
       const res = await fetch('/api/cms/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin: pin.trim() })
+        body: JSON.stringify({ pin: pin.trim() }),
       });
 
       const data = await res.json();
@@ -37,13 +37,12 @@ export function StudioLogin({ onSuccess }: StudioLoginProps) {
         if (onSuccess) {
           onSuccess();
         } else {
-          // Hard refresh to reload server session
           window.location.reload();
         }
       } else {
         setError(data.message || 'Incorrect PIN. Access denied.');
       }
-    } catch (err) {
+    } catch {
       setError('Connection error. Please try again.');
     } finally {
       setLoading(false);
@@ -51,37 +50,35 @@ export function StudioLogin({ onSuccess }: StudioLoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden">
-      {/* Background ambient lighting */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[350px] bg-purple-600/15 blur-[120px] rounded-full pointer-events-none" />
-
-      <div className="max-w-md w-full relative z-10">
-        {/* Header Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-purple-700 to-indigo-600 flex items-center justify-center text-white mx-auto mb-4 shadow-xl shadow-purple-900/40 border border-purple-400/30">
-            <Lock className="w-7 h-7" />
+    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col justify-center items-center px-5 py-12">
+      <div className="max-w-sm w-full">
+        <div className="mb-8 text-center">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-md border border-[var(--border-strong)] bg-[var(--bg-surface)] text-[var(--text-primary)] mb-4">
+            <Lock className="w-4 h-4" />
           </div>
-          <h1 className="font-display text-3xl font-black text-[var(--text-primary)] tracking-tight">
-            EVOLESS STUDIO
+          <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] text-[var(--text-primary)]">
+            Evoless Studio
           </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1.5">
-            Admin access & portfolio video management
+          <p className="text-xs text-[var(--text-muted)] mt-1">
+            Portfolio & video hosting management
           </p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg p-6">
           {error && (
-            <div className="mb-6 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <div className="mb-5 p-3 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label htmlFor="admin-pin" className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-2">
-                Master Admin PIN / Password
+              <label
+                htmlFor="admin-pin"
+                className="block text-[11px] uppercase tracking-[0.12em] text-[var(--text-muted)] mb-2"
+              >
+                Admin PIN
               </label>
               <div className="relative">
                 <input
@@ -89,16 +86,16 @@ export function StudioLogin({ onSuccess }: StudioLoginProps) {
                   type={showPin ? 'text' : 'password'}
                   value={pin}
                   onChange={(e) => setPin(e.target.value)}
-                  placeholder="Enter admin password..."
+                  placeholder="Enter admin PIN"
                   required
                   autoFocus
-                  className="w-full px-4 py-3.5 rounded-xl bg-[var(--bg-surface-elevated)] border border-[var(--border-subtle)] focus:border-purple-500 focus:outline-none text-[var(--text-primary)] text-sm transition-colors pr-11"
+                  className="w-full px-3.5 py-2.5 rounded-md bg-[var(--bg-primary)] border border-[var(--border-subtle)] focus:border-[var(--accent)] focus:outline-none text-[var(--text-primary)] text-sm pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPin(!showPin)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
                   aria-label={showPin ? 'Hide PIN' : 'Show PIN'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] cursor-pointer"
                 >
                   {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -107,27 +104,19 @@ export function StudioLogin({ onSuccess }: StudioLoginProps) {
 
             <button
               type="submit"
-              disabled={loading || !pin.trim()}
-              className="w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all duration-200 shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
+              disabled={loading}
+              className="w-full py-2.5 px-4 rounded-md bg-[var(--cta-bg)] text-[var(--cta-text)] hover:bg-[var(--cta-hover-bg)] font-medium text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Sign In to Studio</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
+              <span>{loading ? 'Verifying...' : 'Sign In'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-[var(--border-subtle)] text-center">
-            <Link
-              href="/"
-              className="text-xs text-[var(--text-muted)] hover:text-purple-400 transition-colors"
-            >
-              ← Return to public portfolio
+          <div className="mt-5 pt-4 border-t border-[var(--border-subtle)] flex items-center justify-between text-xs text-[var(--text-muted)]">
+            <Link href="/en" className="hover:text-[var(--text-primary)] transition-colors">
+              Return to site
             </Link>
+            <span>Authenticated session</span>
           </div>
         </div>
       </div>

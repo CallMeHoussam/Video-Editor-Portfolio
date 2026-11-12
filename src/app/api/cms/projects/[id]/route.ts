@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPortfolioData, savePortfolioData } from '@/lib/cms-store';
+import { getPortfolioDataAsync, savePortfolioDataAsync } from '@/lib/cms-store';
 import { Project } from '@/types/portfolio';
 import { verifyAdminRequest } from '@/lib/auth';
 import { parseVideoUrl, normalizeVideoProvider } from '@/lib/video-utils';
@@ -20,7 +20,7 @@ export async function PUT(
     const { id } = await params;
     const updates: Partial<Project> = await req.json();
 
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
     const index = data.projects.findIndex(p => p.id === id);
 
     if (index === -1) {
@@ -29,18 +29,32 @@ export async function PUT(
 
     const existing = data.projects[index];
 
-    // If video URL changed, validate it
+    const envLibraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim() || undefined;
     let provider = existing.videoProvider;
     let videoUrl = updates.videoUrl !== undefined ? updates.videoUrl : existing.videoUrl;
     let thumbnail = updates.thumbnail !== undefined ? updates.thumbnail : existing.thumbnail;
+    let r2Key = updates.r2Key !== undefined ? updates.r2Key : existing.r2Key;
+    const r2ThumbnailKey = updates.r2ThumbnailKey !== undefined ? updates.r2ThumbnailKey : existing.r2ThumbnailKey;
+    let bunnyLibraryId = updates.bunnyLibraryId !== undefined ? updates.bunnyLibraryId : existing.bunnyLibraryId;
+    let bunnyVideoId = updates.bunnyVideoId !== undefined ? updates.bunnyVideoId : existing.bunnyVideoId;
 
     if (updates.videoUrl && updates.videoUrl !== existing.videoUrl) {
-      const parsed = parseVideoUrl(updates.videoUrl);
+      const parsed = parseVideoUrl(updates.videoUrl, updates.bunnyLibraryId || envLibraryId);
       if (!parsed.valid) {
         return NextResponse.json({ success: false, message: parsed.error || 'Invalid video URL.' }, { status: 400 });
       }
       provider = normalizeVideoProvider(parsed.provider);
       videoUrl = parsed.directUrl || parsed.embedUrl || updates.videoUrl;
+      if (parsed.provider === 'r2') {
+        r2Key = parsed.r2Key || r2Key;
+      }
+      if (parsed.provider === 'bunny') {
+        bunnyLibraryId = parsed.libraryId || updates.bunnyLibraryId || envLibraryId;
+        bunnyVideoId = parsed.bunnyVideoId || updates.bunnyVideoId;
+      } else {
+        bunnyLibraryId = undefined;
+        bunnyVideoId = undefined;
+      }
       if (!thumbnail && parsed.thumbnailUrl) {
         thumbnail = parsed.thumbnailUrl;
       }
@@ -64,12 +78,16 @@ export async function PUT(
       id, // Preserve id
       videoUrl,
       videoProvider: provider,
+      r2Key,
+      r2ThumbnailKey,
+      bunnyLibraryId,
+      bunnyVideoId,
       thumbnail: thumbnail || '',
       folderId: targetFolderId,
       categories: updates.categories || [targetFolderId || 'general']
     };
 
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, project: data.projects[index] });
@@ -92,7 +110,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const data = getPortfolioData();
+    const data = await getPortfolioDataAsync();
     const filtered = data.projects.filter(p => p.id !== id);
 
     if (filtered.length === data.projects.length) {
@@ -100,7 +118,7 @@ export async function DELETE(
     }
 
     data.projects = filtered;
-    savePortfolioData(data);
+    await savePortfolioDataAsync(data);
     revalidatePath('/', 'layout');
 
     return NextResponse.json({ success: true, message: 'Project deleted successfully' });

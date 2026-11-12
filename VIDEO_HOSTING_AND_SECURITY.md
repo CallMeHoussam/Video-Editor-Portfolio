@@ -1,86 +1,101 @@
-# Bunny Stream Video Hosting, Security & Workflow Guide — Evoless
+# Cloudflare R2 Standard Storage & Free-Tier Video Infrastructure — Evoless
 
-This document outlines the video hosting architecture, CMS publishing workflow, and security measures implemented for **Evoless (Houssam Elmsafer)**.
-
----
-
-## 1. Video Publishing Workflow
-
-You never need to store large MP4 or ProRes video files inside the source code repository or deploy them to Vercel.
-
-### Step-by-Step Workflow:
-1. **Upload to Bunny Stream**:
-   - Log into your [Bunny.net Dashboard](https://dash.bunny.net/stream).
-   - In your Video Library (e.g. "Evoless Portfolio"), click **Upload Video** and select your edited file.
-2. **Copy Video Identifiers**:
-   - Once processed, copy the **Video ID** (e.g. `d719e85c-29a5-4eb8-b0a5-f8bbfa88c0ee`).
-   - Your **Library ID** is shown at the top of your Bunny Stream dashboard (e.g. `245890`).
-3. **Paste into Evoless Studio CMS**:
-   - Open your live CMS at `https://evoless.com/studio` (or `http://localhost:3000/studio`).
-   - Click **Create Project** or **Edit** on an existing project.
-   - Under **Video Provider**, choose **Bunny Stream**.
-   - Paste the **Bunny Video ID** and your **Bunny Library ID**.
-   - Select your container aspect ratio:
-     - `9:16` for TikTok / Reels / Shorts.
-     - `16:9` for widescreen commercials & YouTube.
-     - `1:1` or `4:5` for square and social feed formats.
-4. **Publish the Project**:
-   - Click **Save & Publish Live** (or **Save as Draft** to preview privately first).
-   - The video appears automatically in the portfolio and on its dedicated project page.
+This document details the **100% free video infrastructure** built for **Evoless (Houssam Elmsafer)** using Cloudflare R2 Standard Storage via its S3-compatible API.
 
 ---
 
-## 2. Security Architecture & Server-Side Token Signing
+## 1. Cloudflare R2 Free Monthly Allowance
 
-### Server-Side Private Key Security
-- Private signing keys (`BUNNY_STREAM_TOKEN_KEY`) are kept **strictly on the server** in `.env.local` / Vercel Environment Variables.
-- The browser never receives or has access to your private security key.
+Cloudflare R2 includes the following monthly limits for every account:
+- **10 GB-month** of Standard Storage.
+- **1,000,000 Class A operations** per month (e.g. `PutObject`, `ListObjectsV2`, `CreateMultipartUpload`, `UploadPart`, `CompleteMultipartUpload`).
+- **10,000,000 Class B operations** per month (e.g. `GetObject`, `HeadObject`).
+- **$0 Egress fees**: Bandwidth to internet viewers is completely free (unlike AWS S3 or Google Cloud Storage, which charge $0.08–$0.12/GB).
 
-### How Signed Playback Works
-1. When a visitor loads a case study page, `VideoPlayer.tsx` requests a short-lived playback authorization from `/api/video/token`.
-2. The server endpoint hashes the private token key, video ID, and expiration timestamp using SHA256:
-   $$\text{token} = \text{SHA256}(\text{BUNNY\_STREAM\_TOKEN\_KEY} + \text{videoId} + \text{expires})$$
-3. The server returns a signed embed URL with an expiration window (default: 3600 seconds / 1 hour):
-   `https://iframe.mediadelivery.net/embed/{libraryId}/{videoId}?token={token}&expires={expires}`
-4. If someone copies this link, it will expire and fail on unauthorized requests.
+### Staying Within the Free Tier
+For a portfolio displaying 15 to 30 video cuts and motion graphics reels:
+- 20 high-retention vertical reels (each 30–60s encoded at 1080p, ~20–35 MB each) use only **~0.5 to 0.7 GB** of your 10 GB limit (~6% of your free allowance).
+- 5 widescreen commercial cuts (each 1–2 minutes, ~80–120 MB each) use **~0.5 GB**.
+- Total portfolio storage will typically sit between **1 GB and 2 GB**, safely within the **10 GB free ceiling**.
 
----
-
-## 3. Allowed Domain Restrictions (Referrer Whitelisting)
-
-To ensure your videos cannot be embedded on competitor or third-party websites:
-1. In the Bunny.net dashboard, navigate to **Stream** > **Your Library** > **Security**.
-2. Find **Allowed Referrers / Allowed Domains**.
-3. Add your production and local testing domains:
-   - `localhost:3000`
-   - `evoless.com`
-   - `*.evoless.com`
-   - `*.vercel.app` (for preview deployments)
-4. Enable **Block Direct URL Access** if you want playback strictly through your website player.
+### What Happens if You Exceed the Free Allowance?
+Cloudflare R2 does **not** silently throttle or delete files if you exceed the free allowance. Instead, usage above the free tier is billed at standard rates:
+- **Storage over 10 GB**: \$0.015 per GB per month (e.g. 10 extra GB costs \$0.15/month).
+- **Class A operations over 1,000,000**: \$4.50 per 1,000,000 requests.
+- **Class B operations over 10,000,000**: \$0.36 per 1,000,000 requests.
+- **Egress remains 100% free** regardless of how many millions of visitors watch your videos.
+- *Note:* We deliberately do **not** enable Infrequent Access storage, because standard R2 retrieval is already zero-egress and does not incur minimum storage duration penalties or data retrieval fees.
 
 ---
 
-## 4. Realistic Security & DRM Evaluation
+## 2. Architecture & Security: Private Storage & Signed Playback
 
-> [!IMPORTANT]
-> **What Signed Playback & Domain Restrictions Protect:**
-> - Prevents external sites from hotlinking and stealing your CDN bandwidth.
-> - Prevents casual right-click saving of raw video files.
-> - Restricts playback to authorized domain referrers and verified token sessions.
+### Private Bucket Default
+The R2 bucket remains **private**. You do not need to enable public bucket access or expose public S3 URLs.
 
-> [!WARNING]
-> **What CANNOT Be Completely Prevented by Any Web Player:**
-> - **Screen Recording**: No web player or browser DRM can prevent users from using software like OBS, macOS Screen Record, Windows Game Bar, or mobile screen recorders.
-> - **Hardware Capture**: HDMI capture devices (e.g. Elgato) can capture any video rendered on a display.
-> - Watermarks, burned-in brand signatures, or creative resolution mastering are the most effective protections against content re-use.
+### Credentials Never Touch the Browser
+- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_SIGNING_SECRET` remain strictly on the server in `.env.local` or host environment variables.
+- The browser never receives S3 keys.
+- Unauthorized users cannot upload, overwrite, or delete videos (all upload endpoints require admin PIN session cookies verified by `verifyAdminRequest`).
+
+### Upload Flow (Direct Presigned Uploads)
+1. In `/studio`, the editor drops or selects an MP4 video.
+2. The browser calls `POST /api/video/r2/upload` with `{ action: 'presign-put', fileName, contentType }`.
+3. The server validates admin credentials and mints a short-lived (15-minute) presigned `PUT` URL.
+4. For larger files (>80 MB), a chunked multipart upload (`multipart-start`, `multipart-part`, `multipart-complete`) is automatically used.
+5. The browser streams bytes directly to Cloudflare R2 with progress feedback.
+6. The browser extracts a suitable video frame (at ~1.5s) using HTML5 canvas, saves the thumbnail to R2 under `thumbnails/`, and attaches it to the project.
+
+### Playback Flow (Temporary Signed GET URLs & Range Streaming)
+1. Published projects store an R2 reference (e.g. `r2://videos/1794479472817-nike-air.mp4`).
+2. When a visitor views a project, `VideoPlayer.tsx` requests a temporary signed playback URL via `POST /api/video/r2/token`.
+3. The endpoint enforces origin/referer checks and issues a signed GET URL with a **1-hour TTL** (`expiresIn: 3600`).
+4. **Handling Longer Video Viewing Without Interruption**: `VideoPlayer.tsx` sets an automatic refresh timer 5 minutes before expiration to silently renew the signed playback URL in the background, so playback and seeking are never interrupted.
+5. **Seeking & Range Requests**: Cloudflare R2 natively supports HTTP `Range: bytes=start-end` requests, allowing instant seeking across the scrubber. Alternatively, `/api/video/r2/stream` acts as a streaming proxy with explicit HTTP 206 Partial Content support.
 
 ---
 
-## 5. Account Settings Requiring Your Configuration
+## 3. Step-by-Step: How to Create Your Cloudflare R2 Bucket
 
-| Setting | Location in Bunny.net | Purpose |
-|---------|-----------------------|---------|
-| `BUNNY_STREAM_LIBRARY_ID` | Stream > Library > General Settings | Identifies your video storage container. |
-| `BUNNY_STREAM_TOKEN_KEY` | Stream > Library > Security > Token Authentication | Master secret key used by `/api/video/token` to sign embeds. |
-| Allowed Referrers | Stream > Library > Security > Allowed Referrers | Restricts playback to `evoless.com` and `localhost:3000`. |
-| Player Watermark / Branding | Stream > Library > Player Customization | Optional visual logo in player corner. |
+1. Log into your [Cloudflare Dashboard](https://dash.cloudflare.com/).
+2. In the left navigation menu, click **R2**.
+3. Click **Create bucket**.
+   - Name: `evoless-videos` (or your preferred name).
+   - Location: **Automatic** (or select your closest region).
+   - Default storage class: **Standard** (keep Standard, do NOT select Infrequent Access).
+   - Click **Create Bucket**.
+4. Create an R2 API Token:
+   - On the R2 overview page, click **Manage R2 API Tokens** on the right side.
+   - Click **Create API token**.
+   - Token name: `evoless-portfolio-r2`.
+   - Permissions: **Object Read & Write**.
+   - Apply to specific bucket: select `evoless-videos` (or all buckets).
+   - Click **Create API Token**.
+5. Copy the following credentials into your `.env.local`:
+   - **Account ID**: Displayed on the R2 overview page or token summary.
+   - **Access Key ID**: The 32-character key generated.
+   - **Secret Access Key**: The 64-character secret generated (copy it now, Cloudflare only shows it once).
+   - **Bucket Name**: `evoless-videos`.
+
+---
+
+## 4. Environment Variables to Add (`.env.local`)
+
+```env
+# Cloudflare R2 Standard Storage (100% Free Video Hosting)
+R2_ACCOUNT_ID=your_cloudflare_account_id_here
+R2_ACCESS_KEY_ID=your_r2_access_key_id_here
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key_here
+R2_BUCKET_NAME=evoless-videos
+R2_PUBLIC_DOMAIN=
+R2_SIGNING_SECRET=
+```
+
+---
+
+## 5. Local Development Fallback
+
+If you test offline or before setting up Cloudflare R2:
+- Drop test `.mp4` files into `public/videos/` (e.g. `public/videos/sample.mp4`).
+- In `/studio` -> **Add Video**, click the **Local File** source tab and enter `/videos/sample.mp4`.
+- Local videos are strictly ignored by Git (`.gitignore` protects `/public/videos/*`), ensuring large video binaries are never committed to your repository.
